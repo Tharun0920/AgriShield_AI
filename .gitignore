@@ -1,0 +1,17 @@
+# Virtual Environment
+venv/
+
+# Datasets and Models
+data/
+models/
+*.pth
+*.h5
+*.pkl
+*.joblib
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Environment Variables
+.env
