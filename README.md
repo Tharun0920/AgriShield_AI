@@ -8,3 +8,8 @@ An end-to-end multi-modal Data Science pipeline integrating predictive analytics
 
 ## Tech Stack
 * Python, TensorFlow, Scikit-Learn, Pandas, Streamlit
+
+## 🚀 How to Run Locally
+1. Clone this repository.
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run the app: `streamlit run app/app.py`
