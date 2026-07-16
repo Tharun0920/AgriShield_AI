@@ -114,7 +114,8 @@ with tab3:
             with st.spinner("Analyzing agricultural data..."):
                 try:
                     genai.configure(api_key=api_key)
-                    llm = genai.GenerativeModel('gemini-1.5-flash')
+                    # Update the model string to a newer, supported version
+                    llm = genai.GenerativeModel('gemini-3.5-flash')
                     
                     # Add a professional system prompt to guide the AI
                     system_prompt = f"You are an expert agronomist. Answer this query professionally: {prompt}"
