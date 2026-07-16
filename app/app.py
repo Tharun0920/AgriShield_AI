@@ -4,19 +4,31 @@ import numpy as np
 import streamlit as st
 from PIL import Image
 
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
- 
+
 # Set up beautiful page title and icon
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
+
+# --- SIDEBAR FOR API KEY ---
+with st.sidebar:
+    st.header("⚙️ Settings")
+    st.write("To use the GenAI features, enter your free Gemini API Key below.")
+    api_key = st.text_input("Gemini API Key", type="password")
+    st.markdown("[Get your free key here](https://aistudio.google.com/app/apikey)")
 
 st.title("🌾 AgriShield AI: Smart Farming Assistant")
 st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select a tool below to get started.")
 
-# Create two visual tabs at the top of the webpage
-tab1, tab2 = st.tabs(["📸 Crop Disease Diagnostics", "📊 Crop Yield Forecasting"])
+# Create THREE visual tabs now!
+tab1, tab2, tab3 = st.tabs(["📸 Crop Disease Diagnostics", "📊 Crop Yield Forecasting", "🤖 AI Agronomist"])
 
 # --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
 with tab1:
@@ -26,51 +38,81 @@ with tab1:
     uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "jpeg", "png"])
     
     if uploaded_file is not None:
-        # Display the uploaded image cleanly
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Crop Leaf", width=300)
-        
-        st.write("🔄 Analyzing image with Deep Learning...")
-        
-        # The disease model depends on TensorFlow, which is unstable in this runtime.
-        # Keep the UI responsive by switching to a safe simulation fallback.
-        if DISEASE_MODEL_PATH.exists():
-            st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
-        else:
-            st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
+        try:
+            image = Image.open(uploaded_file).convert('RGB')
+            st.image(image, caption="Uploaded Crop Leaf", width=300)
+            
+            st.write("🔄 Analyzing image with Deep Learning...")
+            
+            if DISEASE_MODEL_PATH.exists():
+                st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
+            else:
+                st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
 
-        st.success("Simulation Success: Leaf looks mostly Healthy with minor Nitrogen deficiency!")
+            st.success("Simulation Success: Leaf looks mostly Healthy with minor Nitrogen deficiency!")
+        except Exception as e:
+            st.error(f"An error occurred during vision processing: {e}")
 
 # --- TAB 2: DATA SCIENCE (YIELD PREDICTOR) ---
 with tab2:
     st.header("Yield Forecasting Analytics")
     st.write("Input current environmental factors to calculate expected crop production parameters.")
     
-    # Create numeric input boxes for the user
-    col1, col2 = st.columns(2)
-    with col1:
-        temp = st.number_input("Average Temperature (°C)", value=25.0)
-        rainfall = st.number_input("Annual Rainfall (mm)", value=1200.0)
-    with col2:
-        fertilizer = st.number_input("Fertilizer Usage (kg/ha)", value=150.0)
-        pesticide = st.number_input("Pesticide Usage (kg/ha)", value=10.0)
-        
-    if st.button("Forecast Total Yield"):
-        if YIELD_MODEL_PATH.exists():
-            try:
-                # Load the Day 4 Random Forest model
-                with open(YIELD_MODEL_PATH, 'rb') as f:
-                    yield_model = pickle.load(f)
+    if YIELD_MODEL_PATH.exists():
+        try:
+            with open(YIELD_MODEL_PATH, 'rb') as f:
+                yield_model = pickle.load(f)
+            
+            expected_features = yield_model.feature_names_in_
+            st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
+            
+            user_inputs = []
+            cols = st.columns(2)
+            
+            for i, feature_name in enumerate(expected_features):
+                with cols[i % 2]:
+                    val = st.number_input(f"Enter {feature_name}", value=0.0)
+                    user_inputs.append(val)
+                    
+            if st.button("Forecast Total Yield"):
+                prediction = yield_model.predict([user_inputs])
+                st.balloons()
+                st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
+                
+        except Exception as e:
+             st.error(f"An error occurred during yield forecasting: {e}")
+    else:
+        st.error("Cannot find 'yield_model.pkl' in your models folder.")
 
-                # Format the user inputs into a small list for prediction
-                user_features = np.array([[temp, rainfall, fertilizer, pesticide]])
-                prediction = yield_model.predict(user_features)
-
-                st.balloons()  # Fun visual animation
-                st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f} Quintals/Hectare")
-            except Exception:
-                # If the dataset columns had different counts, fallback gracefully
-                st.error(f"Input features mismatch dataset columns format. Mockup Prediction: {(temp * 0.4) + (rainfall * 0.05):.2f} Quintals/Hectare")
+# --- TAB 3: GENERATIVE AI (EXPERT ADVISOR) ---
+with tab3:
+    st.header("🤖 GenAI Agronomist")
+    st.write("Ask our AI expert for custom farming advice, pest control strategies, or soil remedies.")
+    
+    user_query = st.text_area("Describe your crop issue or ask a farming question here:", height=100)
+    
+    if st.button("Generate Expert Report"):
+        if not api_key:
+            st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+        elif not user_query:
+            st.warning("⚠️ Please type a question before clicking the button.")
         else:
-            st.warning("Yield model file not found in 'models/'. Running in Simulation Mode.")
-            st.metric(label="Simulated Yield Prediction", value=f"{(temp * 0.4) + (rainfall * 0.05):.2f} Quintals/Hectare")
+            try:
+                with st.spinner("Analyzing agricultural data..."):
+                    if genai is None:
+                        raise RuntimeError("Google Generative AI package is not available in this environment.")
+
+                    # Connect to the AI
+                    genai.configure(api_key=api_key)
+                    llm = genai.GenerativeModel('gemini-1.5-flash')
+
+                    # Create a strict persona for the AI
+                    prompt = f"You are an expert agronomist and agricultural data scientist. A farmer asks: {user_query}. Provide a structured, highly professional, and actionable response."
+
+                    response = llm.generate_content(prompt)
+
+                    st.success("Report Generated Successfully!")
+                    st.markdown("### 📋 Expert Advisory Report")
+                    st.write(response.text)
+            except Exception as e:
+                st.error(f"Error connecting to AI Server: {e}")
