@@ -86,7 +86,7 @@ with tab2:
 
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR) ---
 with tab3:
-    st.header("🤖 GenAI Agronomist Chat")
+    st.header("🤖 GenAI AgriShield Chat")
     st.write("Have a continuous conversation with our AI expert regarding crop issues, pest control, or soil health.")
     
     # 1. Initialize a "memory" for the chat history
