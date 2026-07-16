@@ -86,33 +86,46 @@ with tab2:
 
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR) ---
 with tab3:
-    st.header("🤖 GenAI Agronomist")
-    st.write("Ask our AI expert for custom farming advice, pest control strategies, or soil remedies.")
+    st.header("🤖 GenAI Agronomist Chat")
+    st.write("Have a continuous conversation with our AI expert regarding crop issues, pest control, or soil health.")
     
-    user_query = st.text_area("Describe your crop issue or ask a farming question here:", height=100)
-    
-    if st.button("Generate Expert Report"):
+    # 1. Initialize a "memory" for the chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # 2. Draw all previous messages on the screen
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # 3. Create the modern chat input bar at the bottom
+    if prompt := st.chat_input("Ask a farming question here..."):
         if not api_key:
             st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
-        elif not user_query:
-            st.warning("⚠️ Please type a question before clicking the button.")
         else:
-            try:
-                with st.spinner("Analyzing agricultural data..."):
-                    if genai is None:
-                        raise RuntimeError("Google Generative AI package is not available in this environment.")
+            # Display the user's new question instantly
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Save the user's question to memory
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-                    # Connect to the AI
+            # Connect to AI and get the answer
+            with st.spinner("Analyzing agricultural data..."):
+                try:
                     genai.configure(api_key=api_key)
                     llm = genai.GenerativeModel('gemini-1.5-flash')
-
-                    # Create a strict persona for the AI
-                    prompt = f"You are an expert agronomist and agricultural data scientist. A farmer asks: {user_query}. Provide a structured, highly professional, and actionable response."
-
-                    response = llm.generate_content(prompt)
-
-                    st.success("Report Generated Successfully!")
-                    st.markdown("### 📋 Expert Advisory Report")
-                    st.write(response.text)
-            except Exception as e:
-                st.error(f"Error connecting to AI Server: {e}")
+                    
+                    # Add a professional system prompt to guide the AI
+                    system_prompt = f"You are an expert agronomist. Answer this query professionally: {prompt}"
+                    response = llm.generate_content(system_prompt)
+                    ai_answer = response.text
+                    
+                    # Display the AI's answer with an assistant icon
+                    with st.chat_message("assistant"):
+                        st.markdown(ai_answer)
+                        
+                    # Save the AI's answer to memory so it doesn't disappear
+                    st.session_state.messages.append({"role": "assistant", "content": ai_answer})
+                except Exception as e:
+                    st.error(f"Error connecting to AI Server: {e}")
