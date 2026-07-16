@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
-
+ 
 # Set up beautiful page title and icon
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
