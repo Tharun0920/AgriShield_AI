@@ -15,6 +15,25 @@ MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 
+
+def load_yield_model():
+    if YIELD_MODEL_PATH.exists():
+        with YIELD_MODEL_PATH.open("rb") as f:
+            return pickle.load(f)
+
+    part_paths = sorted(MODEL_DIR.glob("yield_model.pkl.part*"))
+    if not part_paths:
+        raise FileNotFoundError("Cannot find 'yield_model.pkl' or its chunk files in the models folder.")
+
+    with YIELD_MODEL_PATH.open("wb") as outfile:
+        for part_path in part_paths:
+            with part_path.open("rb") as infile:
+                outfile.write(infile.read())
+
+    with YIELD_MODEL_PATH.open("rb") as f:
+        return pickle.load(f)
+
+
 # Set up beautiful page title and icon
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
@@ -64,31 +83,27 @@ with tab2:
     st.header("Yield Forecasting Analytics")
     st.write("Input current environmental factors to calculate expected crop production parameters.")
     
-    if YIELD_MODEL_PATH.exists():
-        try:
-            with open(YIELD_MODEL_PATH, 'rb') as f:
-                yield_model = pickle.load(f)
-            
-            expected_features = yield_model.feature_names_in_
-            st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
-            
-            user_inputs = []
-            cols = st.columns(2)
-            
-            for i, feature_name in enumerate(expected_features):
-                with cols[i % 2]:
-                    val = st.number_input(f"Enter {feature_name}", value=0.0)
-                    user_inputs.append(val)
-                    
-            if st.button("Forecast Total Yield"):
-                prediction = yield_model.predict([user_inputs])
-                st.balloons()
-                st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
-                
-        except Exception as e:
-             st.error(f"An error occurred during yield forecasting: {e}")
-    else:
-        st.error("Cannot find 'yield_model.pkl' in your models folder.")
+    try:
+        yield_model = load_yield_model()
+
+        expected_features = yield_model.feature_names_in_
+        st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
+
+        user_inputs = []
+        cols = st.columns(2)
+
+        for i, feature_name in enumerate(expected_features):
+            with cols[i % 2]:
+                val = st.number_input(f"Enter {feature_name}", value=0.0)
+                user_inputs.append(val)
+
+        if st.button("Forecast Total Yield"):
+            prediction = yield_model.predict([user_inputs])
+            st.balloons()
+            st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
+
+    except Exception as e:
+        st.error(f"An error occurred during yield forecasting: {e}")
 
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR) ---
 with tab3:
@@ -168,15 +183,16 @@ with tab4:
         
         st.write("**Feature Importance Weights**")
         # Read features from the model if available, otherwise use defaults
-        if os.path.exists("yield_model.pkl"):
+        if YIELD_MODEL_PATH.exists() or any(MODEL_DIR.glob("yield_model.pkl.part*")):
             try:
-                features = yield_model.feature_names_in_
+                model = load_yield_model()
+                features = model.feature_names_in_
                 # Generate realistic random forest feature importances that sum up to 1.0
                 importances = [0.45, 0.30, 0.15, 0.10][:len(features)]
                 # If features count matches, map them out
                 if len(features) != len(importances):
                     importances = [1.0 / len(features)] * len(features)
-            except:
+            except Exception:
                 features = ["Temperature", "Rainfall", "Fertilizer", "Pesticide"]
                 importances = [0.45, 0.30, 0.15, 0.10]
         else:

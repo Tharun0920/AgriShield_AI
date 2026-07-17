@@ -25,3 +25,5 @@ __pycache__/
 data/
 models/
 .env
+models/yield_model.pkl
+models/yield_model.pkl.part*
