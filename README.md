@@ -1,6 +1,6 @@
 # 🌾 AgriShield AI: Multimodal Farming Assistant
 
-# AgriShield AI: Multimodal Farming Assistant
+
 
 **Status:** ✅ Completed | 🚀 Deployed on Streamlit Cloud | 🛡️ CI/CD Tested
 
