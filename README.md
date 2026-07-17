@@ -5,7 +5,7 @@
 **Status:** ✅ Completed | 🚀 Deployed on Streamlit Cloud | 🛡️ CI/CD Tested
 
 ## Project Overview
-... (the rest of your documentation)
+
 
 
 An end-to-end multi-modal Data Science pipeline integrating predictive analytics with Deep Learning and Generative AI to assist in agricultural decision-making.
