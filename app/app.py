@@ -1,6 +1,6 @@
 from pathlib import Path
 import pickle
-import numpy as np
+import pandas as pd
 import streamlit as st
 from PIL import Image
 import os
@@ -98,7 +98,8 @@ with tab2:
                 user_inputs.append(val)
 
         if st.button("Forecast Total Yield"):
-            prediction = yield_model.predict([user_inputs])
+            input_frame = pd.DataFrame([user_inputs], columns=expected_features)
+            prediction = yield_model.predict(input_frame)
             st.balloons()
             st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
 
@@ -199,7 +200,7 @@ with tab4:
             features = ["Temperature", "Rainfall", "Fertilizer", "Pesticide"]
             importances = [0.45, 0.30, 0.15, 0.10]
             
-        feature_data = {feature: imp for feature, imp in zip(features, importances)}
+        feature_data = dict(zip(features, importances))
         
         # Display using Streamlit's native bar chart
         st.bar_chart(feature_data)
