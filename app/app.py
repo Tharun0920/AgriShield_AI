@@ -6,9 +6,11 @@ from PIL import Image
 import os
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except Exception:
     genai = None
+else:
+    genai = genai
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
@@ -135,20 +137,20 @@ with tab3:
             # Connect to AI and get the answer
             with st.spinner("Analyzing agricultural data..."):
                 try:
-                    genai.configure(api_key=api_key)
-                    # Update the model string to a newer, supported version
-                    llm = genai.GenerativeModel('gemini-3.5-flash')
-                    
-                    # Add a professional system prompt to guide the AI
+                    if genai is None:
+                        raise RuntimeError("Google GenAI package is not available in this environment.")
+
+                    client = genai.Client(api_key=api_key)
                     system_prompt = f"You are an expert agronomist. Answer this query professionally: {prompt}"
-                    response = llm.generate_content(system_prompt)
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=system_prompt,
+                    )
                     ai_answer = response.text
-                    
-                    # Display the AI's answer with an assistant icon
+
                     with st.chat_message("assistant"):
                         st.markdown(ai_answer)
-                        
-                    # Save the AI's answer to memory so it doesn't disappear
+
                     st.session_state.messages.append({"role": "assistant", "content": ai_answer})
                 except Exception as e:
                     st.error(f"Error connecting to AI Server: {e}")
