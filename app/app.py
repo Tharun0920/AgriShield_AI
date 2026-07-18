@@ -4,22 +4,20 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 import os
-
 import numpy as np
 
-# Safely try to import TensorFlow
+try:
+    from google import genai
+except Exception:
+    genai = None
+
+# TF must be the LAST import to prevent macOS segfaults
 try:
     import tensorflow as tf
     TF_AVAILABLE = True
 except ImportError:
     TF_AVAILABLE = False
 
-try:
-    from google import genai
-except Exception:
-    genai = None
-else:
-    genai = genai
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
@@ -47,7 +45,8 @@ def load_yield_model():
 
     part_paths = sorted(MODEL_DIR.glob("yield_model.pkl.part*"))
     if not part_paths:
-        raise FileNotFoundError("Cannot find 'yield_model.pkl' or its chunk files in the models folder.")
+        # FIX: Return None instead of raising FileNotFoundError to allow Simulation Mode
+        return None
 
     with YIELD_MODEL_PATH.open("wb") as outfile:
         for part_path in part_paths:
@@ -71,7 +70,6 @@ with st.sidebar:
 st.title("🌾 AgriShield AI: Smart Farming Assistant")
 st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select a tool below to get started.")
 
-# Create THREE visual tabs now!
 # Create FOUR visual tabs at the top of the webpage
 tab1, tab2, tab3, tab4 = st.tabs([
     "📸 Crop Disease Diagnostics", 
@@ -79,6 +77,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🤖 AI AgriShield Chat",
     "📈 Model Performance Analytics"
 ])
+
 # --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
 with tab1:
     st.header("Crop Disease Scanner")
@@ -97,12 +96,10 @@ with tab1:
             vision_model = load_vision_model()
             
             if vision_model is not None:
-                # 1. Preprocess the image to match the 224x224 training size
                 img_resized = image.resize((224, 224))
                 img_array = np.array(img_resized)
-                img_array = np.expand_dims(img_array, axis=0) # Add batch dimension for TF
+                img_array = np.expand_dims(img_array, axis=0)
                 
-                # 2. Make the real prediction
                 predictions = vision_model.predict(img_array)
                 predicted_class_index = np.argmax(predictions)
                 confidence = np.max(predictions) * 100
@@ -110,7 +107,6 @@ with tab1:
                 st.success(f"Analysis Complete! Predicted Class Index: {predicted_class_index} (Confidence: {confidence:.2f}%)")
                 
             else:
-                # Fallback to simulation ONLY if TensorFlow or the model is actually missing
                 if DISEASE_MODEL_PATH.exists():
                     st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
                 else:
@@ -129,22 +125,42 @@ with tab2:
     try:
         yield_model = load_yield_model()
 
-        expected_features = yield_model.feature_names_in_
-        st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
+        if yield_model is not None:
+            expected_features = yield_model.feature_names_in_
+            st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
 
-        user_inputs = []
-        cols = st.columns(2)
+            user_inputs = []
+            cols = st.columns(2)
 
-        for i, feature_name in enumerate(expected_features):
-            with cols[i % 2]:
-                val = st.number_input(f"Enter {feature_name}", value=0.0)
-                user_inputs.append(val)
+            for i, feature_name in enumerate(expected_features):
+                with cols[i % 2]:
+                    val = st.number_input(f"Enter {feature_name}", value=0.0)
+                    user_inputs.append(val)
 
-        if st.button("Forecast Total Yield"):
-            input_frame = pd.DataFrame([user_inputs], columns=expected_features)
-            prediction = yield_model.predict(input_frame)
-            st.balloons()
-            st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
+            if st.button("Forecast Total Yield"):
+                input_frame = pd.DataFrame([user_inputs], columns=expected_features)
+                prediction = yield_model.predict(input_frame)
+                st.balloons()
+                st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
+        else:
+            # FIX: Fallback to a Simulation Mode if model is missing
+            st.warning("Yield model file not found in 'models/'. Running in Simulation Mode.")
+            expected_features = ["Temperature (°C)", "Rainfall (mm)", "Fertilizer (kg/ha)", "Pesticide (L/ha)"]
+            st.write(f"This simulated model expects **{len(expected_features)}** specific data points. Please fill them out below:")
+
+            user_inputs = []
+            cols = st.columns(2)
+
+            for i, feature_name in enumerate(expected_features):
+                with cols[i % 2]:
+                    val = st.number_input(f"Enter {feature_name}", value=0.0)
+                    user_inputs.append(val)
+
+            if st.button("Forecast Total Yield (Simulated)"):
+                # Basic mock math to simulate a model output
+                mock_prediction = 35.0 + (user_inputs[0] * 0.1) + (user_inputs[1] * 0.05) + (user_inputs[2] * 0.15)
+                st.balloons()
+                st.metric(label="Predicted Crop Yield Production (Simulated)", value=f"{mock_prediction:.2f} Quintals/ha")
 
     except Exception as e:
         st.error(f"An error occurred during yield forecasting: {e}")
@@ -154,28 +170,22 @@ with tab3:
     st.header("🤖 GenAI AgriShield Chat")
     st.write("Have a continuous conversation with our AI expert regarding crop issues, pest control, or soil health.")
     
-    # 1. Initialize a "memory" for the chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # 2. Draw all previous messages on the screen
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # 3. Create the modern chat input bar at the bottom
     if prompt := st.chat_input("Ask a farming question here..."):
         if not api_key:
             st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
         else:
-            # Display the user's new question instantly
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Save the user's question to memory
             st.session_state.messages.append({"role": "user", "content": prompt})
 
-            # Connect to AI and get the answer
             with st.spinner("Analyzing agricultural data..."):
                 try:
                     if genai is None:
@@ -202,7 +212,6 @@ with tab4:
     st.header("📈 Model Performance & Evaluation Metrics")
     st.write("Explore the underlying training analytics, validation metrics, and feature weights for our active AI brains.")
     
-    # Split layout into two columns for the two different models
     col_vision, col_tabular = st.columns(2)
     
     with col_vision:
@@ -210,13 +219,11 @@ with tab4:
         st.metric(label="Validation Accuracy", value="94.2%", delta="+2.1% vs baseline")
         st.metric(label="Training Loss (Final Epoch)", value="0.182")
         
-        # Simulated Training History Data
         st.write("**Training vs Validation Accuracy Curve**")
         epochs = list(range(1, 11))
         train_acc = [0.72, 0.79, 0.83, 0.86, 0.89, 0.91, 0.93, 0.94, 0.95, 0.96]
         val_acc = [0.70, 0.76, 0.81, 0.84, 0.87, 0.89, 0.91, 0.92, 0.93, 0.942]
         
-        # Combine into a dictionary for Streamlit's native line chart
         chart_data = {"Training Accuracy": train_acc, "Validation Accuracy": val_acc}
         st.line_chart(chart_data)
         
@@ -226,14 +233,11 @@ with tab4:
         st.metric(label="Mean Absolute Error (MAE)", value="1.42 Quintals/ha")
         
         st.write("**Feature Importance Weights**")
-        # Read features from the model if available, otherwise use defaults
         if YIELD_MODEL_PATH.exists() or any(MODEL_DIR.glob("yield_model.pkl.part*")):
             try:
                 model = load_yield_model()
-                features = model.feature_names_in_
-                # Generate realistic random forest feature importances that sum up to 1.0
+                features = model.feature_names_in_ if model else ["Temperature", "Rainfall", "Fertilizer", "Pesticide"]
                 importances = [0.45, 0.30, 0.15, 0.10][:len(features)]
-                # If features count matches, map them out
                 if len(features) != len(importances):
                     importances = [1.0 / len(features)] * len(features)
             except Exception:
@@ -244,7 +248,5 @@ with tab4:
             importances = [0.45, 0.30, 0.15, 0.10]
             
         feature_data = dict(zip(features, importances))
-        
-        # Display using Streamlit's native bar chart
         st.bar_chart(feature_data)
         st.caption("This chart displays how heavily the Random Forest model weights each input factor when making a prediction.")
