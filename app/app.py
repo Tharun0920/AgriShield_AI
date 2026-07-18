@@ -5,6 +5,15 @@ import streamlit as st
 from PIL import Image
 import os
 
+import numpy as np
+
+# Safely try to import TensorFlow
+try:
+    import tensorflow as tf
+    TF_AVAILABLE = True
+except ImportError:
+    TF_AVAILABLE = False
+
 try:
     from google import genai
 except Exception:
@@ -16,6 +25,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
+
+
+def load_vision_model():
+    if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
+        return None
+
+    try:
+        return tf.keras.models.load_model(DISEASE_MODEL_PATH)
+    except Exception:
+        return None
 
 
 def load_yield_model():
@@ -71,12 +90,31 @@ with tab1:
             
             st.write("🔄 Analyzing image with Deep Learning...")
             
-            if DISEASE_MODEL_PATH.exists():
-                st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
+            # Try to load the real model
+            vision_model = load_vision_model()
+            
+            if vision_model is not None:
+                # 1. Preprocess the image to match the 224x224 training size
+                img_resized = image.resize((224, 224))
+                img_array = np.array(img_resized)
+                img_array = np.expand_dims(img_array, axis=0) # Add batch dimension for TF
+                
+                # 2. Make the real prediction
+                predictions = vision_model.predict(img_array)
+                predicted_class_index = np.argmax(predictions)
+                confidence = np.max(predictions) * 100
+                
+                st.success(f"Analysis Complete! Predicted Class Index: {predicted_class_index} (Confidence: {confidence:.2f}%)")
+                
             else:
-                st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
+                # Fallback to simulation ONLY if TensorFlow or the model is actually missing
+                if DISEASE_MODEL_PATH.exists():
+                    st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
+                else:
+                    st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
 
-            st.success("Simulation Success: Leaf looks mostly Healthy with minor Nitrogen deficiency!")
+                st.success("Simulation Success: Leaf looks mostly Healthy with minor Nitrogen deficiency!")
+                
         except Exception as e:
             st.error(f"An error occurred during vision processing: {e}")
 
