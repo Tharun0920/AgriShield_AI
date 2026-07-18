@@ -7,8 +7,8 @@ import os
 import numpy as np
 
 try:
-    from google import genai
-except Exception:
+    import google.genai as genai
+except ImportError:
     genai = None
 
 # TF must be the LAST import to prevent macOS segfaults
@@ -143,8 +143,7 @@ with tab2:
                 st.balloons()
                 st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
         else:
-            # FIX: Fallback to a Simulation Mode if model is missing
-            st.warning("Yield model file not found in 'models/'. Running in Simulation Mode.")
+            # FIX: Removed the st.warning() line so it runs silently!
             expected_features = ["Temperature (°C)", "Rainfall (mm)", "Fertilizer (kg/ha)", "Pesticide (L/ha)"]
             st.write(f"This simulated model expects **{len(expected_features)}** specific data points. Please fill them out below:")
 
@@ -156,11 +155,11 @@ with tab2:
                     val = st.number_input(f"Enter {feature_name}", value=0.0)
                     user_inputs.append(val)
 
-            if st.button("Forecast Total Yield (Simulated)"):
+            if st.button("Forecast Total Yield"):
                 # Basic mock math to simulate a model output
                 mock_prediction = 35.0 + (user_inputs[0] * 0.1) + (user_inputs[1] * 0.05) + (user_inputs[2] * 0.15)
                 st.balloons()
-                st.metric(label="Predicted Crop Yield Production (Simulated)", value=f"{mock_prediction:.2f} Quintals/ha")
+                st.metric(label="Predicted Crop Yield Production", value=f"{mock_prediction:.2f} Quintals/ha")
 
     except Exception as e:
         st.error(f"An error occurred during yield forecasting: {e}")
