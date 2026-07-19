@@ -56,16 +56,21 @@ def load_yield_model():
         return pickle.load(f)
 
 
-def get_treatment_plan(disease_name, user_api_key):
-    """Generates an organic and medicinal treatment plan using Gemini API."""
+def analyze_disease_with_gemini(image_data, user_api_key):
+    """Uses Gemini Vision to identify the disease and recommend a treatment plan."""
     if not user_api_key:
-        return "⚠️ Please enter your Gemini API Key in the sidebar to generate a treatment plan."
+        return "⚠️ Please enter your Gemini API Key in the sidebar to generate a diagnostic report."
         
-    prompt = f"""
-    You are an expert agricultural scientist. A farmer's crop has just been diagnosed with '{disease_name}'.
-    Please provide a highly structured, concise treatment plan. 
+    prompt = """
+    You are an expert agricultural scientist. Please analyze this crop leaf image.
+    
+    1. Identify the crop and the specific disease or deficiency it has. (If it looks healthy, state that).
+    2. Provide a highly structured, concise treatment plan. 
     
     Format your response exactly like this:
+    
+    **🔬 Diagnosis:**
+    * [Crop Name] - [Disease/Health Status]
     
     **🌱 Organic Fertilizers & Remedies:**
     * [Item 1]
@@ -83,11 +88,11 @@ def get_treatment_plan(disease_name, user_api_key):
         client = genai.Client(api_key=user_api_key)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=prompt,
+            contents=[image_data, prompt],
         )
         return response.text
     except Exception as e:
-        return f"⚠️ Treatment recommendation system is currently unavailable. Error: {e}"
+        return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
 
 
 # Set up beautiful page title and icon
@@ -113,8 +118,8 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
 with tab1:
-    st.header("Crop Disease Scanner")
-    st.write("Upload a clear photo of a crop leaf to identify potential diseases instantly.")
+    st.header("📸 AI Crop Disease Scanner")
+    st.write("Upload a clear photo of a crop leaf. Our Gemini Vision AI will identify the disease and provide a tailored treatment plan.")
     
     uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "jpeg", "png"])
     
@@ -123,43 +128,19 @@ with tab1:
             image = Image.open(uploaded_file).convert('RGB')
             st.image(image, caption="Uploaded Crop Leaf", width=300)
             
-            st.write("🔄 Analyzing image with Deep Learning...")
-            
-            # Try to load the real model
-            vision_model = load_vision_model()
-            
-            predicted_disease = "Unknown" # Default fallback
-            
-            if vision_model is not None:
-                img_resized = image.resize((224, 224))
-                img_array = np.array(img_resized)
-                img_array = np.expand_dims(img_array, axis=0)
-                
-                predictions = vision_model.predict(img_array)
-                predicted_class_index = np.argmax(predictions)
-                confidence = np.max(predictions) * 100
-                
-                predicted_disease = f"Class {predicted_class_index}"
-                st.success(f"**Diagnosis Complete:** {predicted_disease} (Confidence: {confidence:.2f}%)")
-                
-            else:
-                if DISEASE_MODEL_PATH.exists():
-                    st.warning("Disease model file is present, but TensorFlow is unavailable. Running in Simulation Mode.")
+            if st.button("🔍 Analyze Disease & Get Treatment Plan"):
+                if not api_key:
+                    st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
-
-                predicted_disease = "Minor Nitrogen Deficiency"
-                st.success(f"**Diagnosis Complete:** {predicted_disease}")
-            
-            # --- NEW AGENTIC CHAINING LOGIC ---
-            with st.spinner("Generating expert treatment plan using Gemini AI..."):
-                treatment_plan = get_treatment_plan(predicted_disease, api_key)
-                
-                st.markdown("---")
-                st.subheader("📋 Recommended Action Plan")
-                st.info(treatment_plan)
-                st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
-                
+                    with st.spinner("Gemini Vision AI is analyzing the leaf structure..."):
+                        
+                        diagnosis_report = analyze_disease_with_gemini(image, api_key)
+                        
+                        st.markdown("---")
+                        st.subheader("📋 Comprehensive AI Diagnostic Report")
+                        st.info(diagnosis_report)
+                        st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
+                        
         except Exception as e:
             st.error(f"An error occurred during vision processing: {e}")
 
