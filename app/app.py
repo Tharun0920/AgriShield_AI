@@ -294,6 +294,7 @@ with tab2:
     if "ai_region" not in st.session_state: st.session_state.ai_region = "Southern Plateau"
     if "ai_district" not in st.session_state: st.session_state.ai_district = "Chittoor"
     if "ai_soil" not in st.session_state: st.session_state.ai_soil = "Red Loamy Soil"
+    if "ai_pincode" not in st.session_state: st.session_state.ai_pincode = "517112"
 
     with st.expander("📍 Step 1: AI Geographic & Soil Setup", expanded=True):
         st.write("Type your village, town, or pincode. Gemini AI will auto-fill your geography!")
@@ -313,13 +314,14 @@ with tab2:
                             # Split by comma and strip whitespace from each part safely
                             parts = [p.strip() for p in detected.split(',')]
                             
-                            # Ensure Gemini actually returned at least 4 parts
-                            if len(parts) >= 4:
+                            # Ensure Gemini actually returned at least 5 parts
+                            if len(parts) >= 5:
                                 st.session_state.ai_state = parts[0]
                                 st.session_state.ai_region = parts[1]
                                 st.session_state.ai_district = parts[2]
                                 st.session_state.ai_soil = parts[3]
-                                st.success("✅ Location Synced! (Updates will reflect below)")
+                                st.session_state.ai_pincode = parts[4]
+                                st.success("✅ Location & Pincode Synced! (Updates will reflect below)")
                             else:
                                 st.warning(f"⚠️ AI returned incomplete data format: '{detected}'. Try running it again.")
                         except Exception as e:
@@ -331,6 +333,7 @@ with tab2:
         with c1:
             state_in = st.text_input("State", value=st.session_state.ai_state)
             district_in = st.text_input("District", value=st.session_state.ai_district)
+            pincode_in = st.text_input("Pincode", value=st.session_state.ai_pincode)
             area_in = st.number_input("Total Land Area (Hectares)", min_value=0.1, value=1.0)
         with c2:
             region_in = st.text_input("Agro-Climatic Region", value=st.session_state.ai_region)
@@ -395,7 +398,8 @@ with tab2:
                 
                 # 2. Gemini Multi-Modal Detailed Report
                 with st.spinner(f"Generating localized Agronomy Report in {target_language}..."):
-                    geo_data = f"State: {state_in}, Region: {region_in}, District: {district_in}, Soil: {soil_in}, Area: {area_in} Ha"
+                    # We pass the pincode_in variable to Gemini as part of the geographic context
+                    geo_data = f"State: {state_in}, Region: {region_in}, District: {district_in}, Pincode: {pincode_in}, Soil: {soil_in}, Area: {area_in} Ha"
                     env_data = f"Temp: {temp_in}°C, Rain: {rain_in}mm, Fert: {fert_in}kg/ha, Pest: {pest_in}L/ha"
                     
                     final_report = generate_advanced_yield_report(
@@ -405,7 +409,6 @@ with tab2:
                     st.markdown("---")
                     st.markdown(f"### 📋 AI Multi-Modal Yield & Soil Analysis ({selected_language_label})")
                     st.info(final_report)
-
 
 # ==========================================
 # TAB 3: GENERATIVE AI CHAT (Preserved)
