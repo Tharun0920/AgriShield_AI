@@ -59,7 +59,7 @@ def load_yield_model():
 def analyze_crop_image_with_gemini(image_data, category, target_language, user_api_key):
     """
     Validates the uploaded category using Gemini Vision, identifies the crop disease, 
-    and returns a highly detailed diagnostic report translated into the target Indian language.
+    and returns a highly detailed, human-understandable treatment plan translated to the chosen Indian language.
     """
     if not user_api_key:
         return "⚠️ Please enter your Gemini API Key in the sidebar to generate a diagnostic report."
@@ -70,28 +70,28 @@ def analyze_crop_image_with_gemini(image_data, category, target_language, user_a
     STEP 1: CLOSELY INSPECT THE UPLOADED IMAGE AND VERIFY IF IT CONTAINS A {category.upper()}. 
     If the image does NOT strictly contain a {category} (e.g., if it is a fruit but the current active category is a leaf, or if it is a random non-agricultural object/person), you must respond EXACTLY with the text: "ERROR: INVALID_CATEGORY". Do not add any formatting, extra explanation, or introductory words.
     
-    STEP 2: If the image matches the correct {category} profile, analyze the condition and provide a highly detailed diagnostic review.
+    STEP 2: If the image matches the correct {category} profile, analyze the condition and provide a highly detailed, human-understandable diagnostic review.
     
-    CRITICAL LOCALIZATION REQUIREMENT: You MUST generate the entire output of STEP 2 (including headings, labels, bullet points, and descriptions) in the following language: {target_language}. Translate all English agricultural terms into clear, culturally clear expressions that a local Indian farmer speaking {target_language} can easily understand.
+    CRITICAL: YOU MUST TRANSLATE AND GENERATE ALL THE VALUE TEXTS, EXPLANATIONS, AND INSTRUCTIONS INTO THE TARGET INDIAN LANGUAGE: "{target_language}". Keep the Markdown headings in standard English format, but write all explanatory and bulleted details natively in the chosen language.
     
-    Format your response structure exactly like this template, but fully translated into {target_language}:
+    Format your response exactly using this Markdown structure:
     
     ## 🔬 Comprehensive Diagnosis
     * **Target Type:** {category.capitalize()} Analysis
-    * **Identified Crop/Plant Variety:** [Insert Crop Name]
-    * **Detected Pathological Condition:** [Insert Disease Name or Healthy Status]
+    * **Identified Crop/Plant Variety:** [Insert Name in {target_language}]
+    * **Detected Pathological Condition:** [Insert Disease Name or Healthy Status in {target_language}]
     * **AI Diagnostic Confidence:** [High / Medium / Low]
     
     ## 📖 Disease Information & Overview
-    [Provide a comprehensive, detailed, paragraph-long overview explaining what the disease is in simple terms, how it damages the crop tissue, visible symptoms to watch out for, and environmental factors that cause it.]
+    [Provide a comprehensive, detailed, paragraph-long overview explaining what the disease is in simple terms, how it damages the crop tissue, visible symptoms to watch out for, and the environmental factors that cause it. Write natively in {target_language}.]
     
     ## 🌱 Advanced Organic Fertilizers & Natural Remedies
-    * **Remedy 1:** [Provide explicit instructions on preparation, mixing ratios, application timing, and frequency.]
-    * **Remedy 2:** [Provide explicit instructions on preparation, mixing ratios, application timing, and frequency.]
+    * **Remedy 1:** [Provide explicit instructions on preparation, mixing ratios, application timing, and frequency in {target_language}.]
+    * **Remedy 2:** [Provide explicit instructions on preparation, mixing ratios, application timing, and frequency in {target_language}.]
     
     ## 🧪 Recommended Medicines & Chemical Cures
-    * **Option 1 (Active Ingredient):** [Provide precise instructions on chemical usage, dilution guidelines, target spraying patterns, and exact recovery periods.]
-    * **Option 2 (Active Ingredient):** [Provide precise instructions on chemical usage, dilution guidelines, target spraying patterns, and exact recovery periods.]
+    * **Option 1 (Active Ingredient):** [Provide precise instructions on chemical usage, dilution guidelines, target spraying patterns, and exact recovery periods in {target_language}.]
+    * **Option 2 (Active Ingredient):** [Provide precise instructions on chemical usage, dilution guidelines, target spraying patterns, and exact recovery periods in {target_language}.]
     """
     
     try:
@@ -111,12 +111,25 @@ def analyze_crop_image_with_gemini(image_data, category, target_language, user_a
 # Set up beautiful page title and icon
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
-# --- SIDEBAR FOR API KEY ---
+# --- SIDEBAR FOR CONFIGURATION ---
 with st.sidebar:
-    st.header("⚙️ Settings")
-    st.write("To use the GenAI features, enter your free Gemini API Key below.")
+    st.header("⚙️ Configuration Settings")
+    st.write("Enter your free Gemini API Key below to activate the intelligent engines.")
     api_key = st.text_input("Gemini API Key", type="password")
     st.markdown("[Get your free key here](https://aistudio.google.com/app/apikey)")
+    
+    st.markdown("---")
+    st.header("🌐 Language Settings")
+    st.write("Select your preferred Indian language for reports and chat communications:")
+    
+    indian_languages = [
+        "English", "Hindi (हिन्दी)", "Telugu (తెలుగు)", "Tamil (தமிழ்)", 
+        "Kannada (ಕನ್ನಡ)", "Malayalam (മലയാളം)", "Bengali (বাংলা)", 
+        "Marathi (मराठी)", "Gujarati (ગુજરાતી)", "Punjabi (ਪੰਜਾਬੀ)", 
+        "Odia (ଓଡ଼ିଆ)", "Assamese (অসমীয়া)", "Urdu (اردو)"
+    ]
+    
+    selected_language = st.selectbox("Choose Language", options=indian_languages, index=0)
 
 st.title("🌾 AgriShield AI: Smart Farming Assistant")
 st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select a tool below to get started.")
@@ -131,28 +144,8 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # --- TAB 1: ADVANCED COMPUTER VISION ENGINE ---
 with tab1:
-    st.header("📸 Multimodal Crop Health & Localization Center")
-    st.write("Configure your regional language preferences below, then choose a category to initiate the scan.")
-    
-    # --- TRANSLATION DROP-DOWN FEATURE ---
-    st.markdown("### 🌐 Regional Translation Settings")
-    indian_languages = [
-        "English",
-        "Hindi (हिन्दी)",
-        "Telugu (తెలుగు)",
-        "Tamil (தமிழ்)",
-        "Kannada (ಕನ್ನಡ)",
-        "Malayalam (മലയാളം)",
-        "Bengali (বাংলা)",
-        "Marathi (मराठी)",
-        "Gujarati (ગુજરાતી)",
-        "Odia (ଓଡ଼ିଆ)",
-        "Punjabi (ਪੰਜਾਬୀ)",
-        "Assamese (অસમীয়া)",
-        "Urdu (اردو)"
-    ]
-    selected_language = st.selectbox("Select target language for report generation:", options=indian_languages, index=0)
-    st.markdown("---")
+    st.header("📸 Multimodal Crop Health & Pathology Center")
+    st.write("Select the specific category tab below to upload an image and launch an advanced visual health audit.")
     
     # Nested category tabs inside Tab 1
     sub_tab_leaf, sub_tab_fruit, sub_tab_veg = st.tabs([
@@ -175,13 +168,13 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner(f"Analyzing leaf structural data and translating to {selected_language}..."):
+                    with st.spinner("Analyzing leaf structural data..."):
                         report = analyze_crop_image_with_gemini(leaf_img, "leaf", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a leaf. Please upload an image of a leaf only.")
                         else:
-                            st.success("✅ Analysis Complete!")
+                            st.success(f"✅ Analysis Complete! (Translated to {selected_language})")
                             st.markdown(report)
                             st.caption("*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
@@ -199,13 +192,13 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner(f"Analyzing fruit surface metrics and translating to {selected_language}..."):
+                    with st.spinner("Analyzing fruit surface metrics..."):
                         report = analyze_crop_image_with_gemini(fruit_img, "fruit", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a fruit. Please upload an image of a fruit only.")
                         else:
-                            st.success("✅ Analysis Complete!")
+                            st.success(f"✅ Analysis Complete! (Translated to {selected_language})")
                             st.markdown(report)
                             st.caption("*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
@@ -223,13 +216,13 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner(f"Analyzing vegetable tissue composition and translating to {selected_language}..."):
+                    with st.spinner("Analyzing vegetable tissue composition..."):
                         report = analyze_crop_image_with_gemini(veg_img, "vegetable", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a vegetable. Please upload an image of a vegetable only.")
                         else:
-                            st.success("✅ Analysis Complete!")
+                            st.success(f"✅ Analysis Complete! (Translated to {selected_language})")
                             st.markdown(report)
                             st.caption("*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
@@ -281,7 +274,7 @@ with tab2:
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR) ---
 with tab3:
     st.header("🤖 GenAI AgriShield Chat")
-    st.write("Have a continuous conversation with our AI expert regarding crop issues, pest control, or soil health.")
+    st.write(f"Have a continuous conversation with our AI expert. Selected Output Language: **{selected_language}**")
     
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -305,7 +298,15 @@ with tab3:
                         raise RuntimeError("Google GenAI package is not available in this environment.")
 
                     client = genai.Client(api_key=api_key)
-                    system_prompt = f"You are an expert agronomist. Answer this query professionally: {prompt}"
+                    
+                    system_prompt = f"""
+                    You are an expert agronomist advising a farmer. The user's query is: '{prompt}'.
+                    Please answer this query professionally, concisely, and completely.
+                    
+                    CRITICAL MANDATE: You MUST provide the full response natively written in the following language: "{selected_language}". 
+                    If the selected language is not English, respond entirely using the native script/font of that specific language.
+                    """
+                    
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=system_prompt,
