@@ -101,6 +101,17 @@ def analyze_crop_image_with_gemini(image_data, category, user_api_key):
     except Exception as e:
         return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
 
+st.title("🌾 AgriShield AI: Smart Farming Assistant")
+st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select a tool below to get started.")
+
+# Create FOUR visual tabs at the top of the webpage
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📸 Crop Disease Diagnostics", 
+    "📊 Crop Yield Forecasting", 
+    "🤖 AI AgriShield Chat",
+    "📈 Model Performance Analytics"
+])
+
 # --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
 with tab1:
     st.header("📸 Advanced Crop Disease Analysis Platform")
