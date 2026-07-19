@@ -57,7 +57,7 @@ def load_yield_model():
 
 
 def analyze_crop_image_with_gemini(image_data, category, user_api_key):
-    """Validates the image category, identifies the disease, and generates a treatment plan."""
+    """Validates the image category, identifies the disease, and generates a detailed treatment plan."""
     if not user_api_key:
         return "⚠️ Please enter your Gemini API Key in the sidebar to generate a diagnostic report."
         
@@ -101,6 +101,17 @@ def analyze_crop_image_with_gemini(image_data, category, user_api_key):
     except Exception as e:
         return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
 
+
+# Set up beautiful page title and icon
+st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
+
+# --- SIDEBAR FOR API KEY ---
+with st.sidebar:
+    st.header("⚙️ Settings")
+    st.write("To use the GenAI features, enter your free Gemini API Key below.")
+    api_key = st.text_input("Gemini API Key", type="password")
+    st.markdown("[Get your free key here](https://aistudio.google.com/app/apikey)")
+
 st.title("🌾 AgriShield AI: Smart Farming Assistant")
 st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select a tool below to get started.")
 
@@ -112,7 +123,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Model Performance Analytics"
 ])
 
-# --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
+# --- TAB 1: COMPUTER VISION (MULTI-CATEGORY SCANNER) ---
 with tab1:
     st.header("📸 Advanced Crop Disease Analysis Platform")
     st.write("Select the specific crop section below to perform an automated visual health audit.")
@@ -130,20 +141,26 @@ with tab1:
         uploaded_leaf = st.file_uploader("Upload a clear photo of a crop leaf...", type=["jpg", "jpeg", "png"], key="leaf_upload")
         
         if uploaded_leaf is not None:
-            leaf_img = Image.open(uploaded_leaf).convert('RGB')
-            st.image(leaf_img, caption="Target Image: Leaf", width=300)
-            
-            if st.button("🔍 Run Leaf Diagnostics", key="btn_leaf"):
-                with st.spinner("Analyzing leaf structural data..."):
-                    report = analyze_crop_image_with_gemini(leaf_img, "leaf", api_key)
-                    
-                    if "ERROR: INVALID_CATEGORY" in report:
-                        st.error("❌ Diagnostic Error: The uploaded image does not appear to be a leaf. Please upload an image of a leaf only.")
+            try:
+                leaf_img = Image.open(uploaded_leaf).convert('RGB')
+                st.image(leaf_img, caption="Target Image: Leaf", width=300)
+                
+                if st.button("🔍 Run Leaf Diagnostics", key="btn_leaf"):
+                    if not api_key:
+                        st.error("⚠️ Please enter your Gemini API Key in the sidebar first!")
                     else:
-                        st.success("✅ Analysis Complete!")
-                        st.markdown("### 📋 Comprehensive Leaf Diagnostic Report")
-                        st.info(report)
-                        st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+                        with st.spinner("Analyzing leaf structural data..."):
+                            report = analyze_crop_image_with_gemini(leaf_img, "leaf", api_key)
+                            
+                            if "ERROR: INVALID_CATEGORY" in report:
+                                st.error("❌ Diagnostic Error: The uploaded image does not appear to be a leaf. Please upload an image of a leaf only.")
+                            else:
+                                st.success("✅ Analysis Complete!")
+                                st.markdown("### 📋 Comprehensive Leaf Diagnostic Report")
+                                st.info(report)
+                                st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
     # --- SUB-SECTION 2: FRUIT ---
     with sub_tab_fruit:
@@ -151,20 +168,26 @@ with tab1:
         uploaded_fruit = st.file_uploader("Upload a clear photo of a crop fruit...", type=["jpg", "jpeg", "png"], key="fruit_upload")
         
         if uploaded_fruit is not None:
-            fruit_img = Image.open(uploaded_fruit).convert('RGB')
-            st.image(fruit_img, caption="Target Image: Fruit", width=300)
-            
-            if st.button("🔍 Run Fruit Diagnostics", key="btn_fruit"):
-                with st.spinner("Analyzing fruit surface features..."):
-                    report = analyze_crop_image_with_gemini(fruit_img, "fruit", api_key)
-                    
-                    if "ERROR: INVALID_CATEGORY" in report:
-                        st.error("❌ Diagnostic Error: The uploaded image does not appear to be a fruit. Please upload an image of a fruit only.")
+            try:
+                fruit_img = Image.open(uploaded_fruit).convert('RGB')
+                st.image(fruit_img, caption="Target Image: Fruit", width=300)
+                
+                if st.button("🔍 Run Fruit Diagnostics", key="btn_fruit"):
+                    if not api_key:
+                        st.error("⚠️ Please enter your Gemini API Key in the sidebar first!")
                     else:
-                        st.success("✅ Analysis Complete!")
-                        st.markdown("### 📋 Comprehensive Fruit Diagnostic Report")
-                        st.info(report)
-                        st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+                        with st.spinner("Analyzing fruit surface features..."):
+                            report = analyze_crop_image_with_gemini(fruit_img, "fruit", api_key)
+                            
+                            if "ERROR: INVALID_CATEGORY" in report:
+                                st.error("❌ Diagnostic Error: The uploaded image does not appear to be a fruit. Please upload an image of a fruit only.")
+                            else:
+                                st.success("✅ Analysis Complete!")
+                                st.markdown("### 📋 Comprehensive Fruit Diagnostic Report")
+                                st.info(report)
+                                st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
     # --- SUB-SECTION 3: VEGETABLE ---
     with sub_tab_veg:
@@ -172,20 +195,27 @@ with tab1:
         uploaded_veg = st.file_uploader("Upload a clear photo of a crop vegetable...", type=["jpg", "jpeg", "png"], key="veg_upload")
         
         if uploaded_veg is not None:
-            veg_img = Image.open(uploaded_veg).convert('RGB')
-            st.image(veg_img, caption="Target Image: Vegetable", width=300)
-            
-            if st.button("🔍 Run Vegetable Diagnostics", key="btn_veg"):
-                with st.spinner("Analyzing vegetable tissue pathology..."):
-                    report = analyze_crop_image_with_gemini(veg_img, "vegetable", api_key)
-                    
-                    if "ERROR: INVALID_CATEGORY" in report:
-                        st.error("❌ Diagnostic Error: The uploaded image does not appear to be a vegetable. Please upload an image of a vegetable only.")
+            try:
+                veg_img = Image.open(uploaded_veg).convert('RGB')
+                st.image(veg_img, caption="Target Image: Vegetable", width=300)
+                
+                if st.button("🔍 Run Vegetable Diagnostics", key="btn_veg"):
+                    if not api_key:
+                        st.error("⚠️ Please enter your Gemini API Key in the sidebar first!")
                     else:
-                        st.success("✅ Analysis Complete!")
-                        st.markdown("### 📋 Comprehensive Vegetable Diagnostic Report")
-                        st.info(report)
-                        st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+                        with st.spinner("Analyzing vegetable tissue pathology..."):
+                            report = analyze_crop_image_with_gemini(veg_img, "vegetable", api_key)
+                            
+                            if "ERROR: INVALID_CATEGORY" in report:
+                                st.error("❌ Diagnostic Error: The uploaded image does not appear to be a vegetable. Please upload an image of a vegetable only.")
+                            else:
+                                st.success("✅ Analysis Complete!")
+                                st.markdown("### 📋 Comprehensive Vegetable Diagnostic Report")
+                                st.info(report)
+                                st.caption("*Disclaimer: Verify chemical treatment suggestions with local authorities.*")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+
 # --- TAB 2: DATA SCIENCE (YIELD PREDICTOR) ---
 with tab2:
     st.header("Yield Forecasting Analytics")
