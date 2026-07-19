@@ -27,7 +27,8 @@ YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 PART0 = MODEL_DIR / "yield_model.pkl.part0"
 PART1 = MODEL_DIR / "yield_model.pkl.part1"
 
-
+# FIX: Added Streamlit caching to prevent macOS mutex deadlocks
+@st.cache_resource
 def load_vision_model():
     if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
         return None
@@ -37,7 +38,8 @@ def load_vision_model():
     except Exception:
         return None
 
-
+# FIX: Added Streamlit caching to prevent macOS mutex deadlocks
+@st.cache_resource
 def load_yield_model():
     if YIELD_MODEL_PATH.exists():
         with YIELD_MODEL_PATH.open("rb") as f:
