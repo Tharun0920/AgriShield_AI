@@ -108,6 +108,64 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
         return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
 
 
+def analyze_multimodal_yield_with_gemini(soil_img, crop_img, data_payload, target_lang, user_api_key):
+    """
+    Uses Gemini Vision to parse soil images, germination/flowering images, and environmental data
+    to generate an advanced yield forecast and comprehensive soil restoration matrix.
+    """
+    if not user_api_key:
+        return "⚠️ Please enter your Gemini API Key in the sidebar to run the simulation engine."
+
+    prompt = f"""
+    You are an elite agricultural data scientist and soil chemist specialized in precision farming.
+    Analyze the provided inputs:
+    * Soil Image (If provided): Inspect color, granularity, and texture.
+    * Crop Stage Image (If provided): Inspect germination rate, flower density, and structural vigor.
+    * Environmental Context: {data_payload}
+    
+    Generate a rigorous, human-understandable forecast and land advisory report.
+    CRITICAL: YOU MUST TRANSLATE THE ENTIRE RESPONSE INTO THE FOLLOWING LANGUAGE: {target_lang}.
+    
+    Format the output structure exactly using this Markdown layout:
+    
+    ## 📊 Advanced Production & Yield Forecast
+    * **Estimated Production Capacity:** [Insert Predicted Numeric Value Range in Quintals/Hectare]
+    * **Early-Stage Growth Vigor Evaluation:** [Excellent / Stable / Poor based on crop image]
+    * **Key Micro-Climate Constraints:** [List any warning points related to temp/rainfall context]
+    
+    ## ⏳ Crop Development Insights (Germination / Flowering)
+    [Provide a detailed paragraph reviewing the crop growth stage shown in the image. Detail if germination density or flower health matches optimal targets for the given area size.]
+    
+    ## 🧪 Soil Quality Diagnostic Matrix
+    * **Observed Soil Textural Properties:** [e.g., Clayey loam, sandy, crusty topsoil]
+    * **Estimated Nutrient Vigor Level:** [High / Moderate / Severely Depleted]
+    * **Drainage & Aeration Rating:** [Good / Restrictive / Prone to Waterlogging]
+    
+    ## 📈 Actionable Soil Improvement Roadmap
+    * **Organic Remediation Steps:** [Detailed natural improvements: green manure, custom compost, biochar dosages based on soil type]
+    * **Mineral & Structural Tweaks:** [Targeted chemical/mineral additives or tillage adjustments to optimize production across the given area]
+    """
+
+    content_list = []
+    if soil_img is not None:
+        content_list.append(soil_img)
+    if crop_img is not None:
+        content_list.append(crop_img)
+    content_list.append(prompt)
+
+    try:
+        if genai is None:
+            return "⚠️ Google GenAI package is not available in this environment."
+        client = genai.Client(api_key=user_api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=content_list,
+        )
+        return response.text
+    except Exception as e:
+        return f"⚠️ Yield analysis engine encountered an unexpected error: {e}"
+
+
 # Set up beautiful page title and icon
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
@@ -125,7 +183,7 @@ INDIAN_LANGUAGES = {
     "Punjabi (ਪੰਜਾਬੀ)": "Punjabi",
     "Odia (ଓଡ଼ିଆ)": "Odia",
     "Urdu (اُردو)": "Urdu",
-    "Assamese (অসমীয়া)": "Assamese",
+    "Assamese (অসময়ীয়া)": "Assamese",
     "Sanskrit (संस्कृतम्)": "Sanskrit"
 }
 
@@ -238,50 +296,69 @@ with tab1:
                             st.markdown(report)
                             st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
-# --- TAB 2: DATA SCIENCE (YIELD PREDICTOR) ---
+# --- TAB 2: MULTIMODAL CROP YIELD & SOIL FORECASTING ---
 with tab2:
-    st.header("Yield Forecasting Analytics")
-    st.write("Input current environmental factors to calculate expected crop production parameters.")
+    st.header("📊 Advanced Yield Forecasting & Soil Analytics Engine")
+    st.write(f"Current Output Language: **{selected_language_label}**")
+    st.write("Provide geographical inputs and upload crop growth images to execute a comprehensive yield projection.")
+
+    col_meta, col_env = st.columns(2)
     
-    try:
-        yield_model = load_yield_model()
+    with col_meta:
+        st.subheader("🌐 Region & Soil Metadata")
+        soil_type = st.selectbox("Select Regional Soil Classification", [
+            "Alluvial Soil (Highly Fertile)", 
+            "Black Cotton Soil (Regur Clay)", 
+            "Red/Yellow Podzolic Soil", 
+            "Laterite Acidic Soil", 
+            "Arid/Sandy Desert Soil"
+        ])
+        cultivation_area = st.number_input("Cultivation Region Size (Hectares)", min_value=0.1, max_value=1000.0, value=1.0, step=0.5)
+        temp_input = st.number_input("Mean Regional Temperature (°C)", min_value=-10.0, max_value=60.0, value=28.0)
+        rainfall_input = st.number_input("Annual Expected Rainfall (mm)", min_value=0.0, max_value=5000.0, value=800.0)
 
-        if yield_model is not None:
-            expected_features = yield_model.feature_names_in_
-            st.write(f"This model was trained on **{len(expected_features)}** specific data points. Please fill them out below:")
+    with col_env:
+        st.subheader("🧪 Inputs & Treatment Parameters")
+        fertilizer_input = st.number_input("Nitrogen/Phosphorus/Potassium Additives applied (kg/ha)", min_value=0.0, max_value=500.0, value=120.0)
+        pesticide_input = st.number_input("Total Specialized Plant Protectors Applied (L/ha)", min_value=0.0, max_value=50.0, value=2.5)
 
-            user_inputs = []
-            cols = st.columns(2)
+    st.markdown("---")
+    st.subheader("📷 Multimodal Vision Uploads")
+    col_img1, col_img2 = st.columns(2)
+    
+    with col_img1:
+        uploaded_soil_img = st.file_uploader("Upload Soil Sample Canvas (For Texture & Quality Diagnosis)", type=["jpg", "jpeg", "png"], key="soil_img")
+        if uploaded_soil_img is not None:
+            st.image(Image.open(uploaded_soil_img).convert('RGB'), caption="Target: Soil Texture Profile", width=250)
+            
+    with col_img2:
+        uploaded_crop_img = st.file_uploader("Upload Growth Stage Canvas (Germination / Flower Clusters)", type=["jpg", "jpeg", "png"], key="crop_stage_img")
+        if uploaded_crop_img is not None:
+            st.image(Image.open(uploaded_crop_img).convert('RGB'), caption="Target: Crop Development Profile", width=250)
 
-            for i, feature_name in enumerate(expected_features):
-                with cols[i % 2]:
-                    val = st.number_input(f"Enter {feature_name}", value=0.0, key=f"real_feat_{i}")
-                    user_inputs.append(val)
-
-            if st.button("Forecast Total Yield", key="btn_real_yield"):
-                input_frame = pd.DataFrame([user_inputs], columns=expected_features)
-                prediction = yield_model.predict(input_frame)
-                st.balloons()
-                st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
+    if st.button("🚀 Execute Comprehensive Forecasting Pipeline"):
+        if not api_key:
+            st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
         else:
-            expected_features = ["Temperature (°C)", "Rainfall (mm)", "Fertilizer (kg/ha)", "Pesticide (L/ha)"]
-            st.write(f"This simulated model expects **{len(expected_features)}** specific data points. Please fill them out below:")
-
-            user_inputs = []
-            cols = st.columns(2)
-
-            for i, feature_name in enumerate(expected_features):
-                with cols[i % 2]:
-                    val = st.number_input(f"Enter {feature_name}", value=0.0, key=f"sim_feat_{i}")
-                    user_inputs.append(val)
-
-            if st.button("Forecast Total Yield", key="btn_sim_yield"):
-                mock_prediction = 35.0 + (user_inputs[0] * 0.1) + (user_inputs[1] * 0.05) + (user_inputs[2] * 0.15)
+            with st.spinner("Processing vision inputs and running agricultural regression metrics..."):
+                # package context variables
+                payload = {
+                    "soil_type": soil_type,
+                    "area_hectares": cultivation_area,
+                    "temperature_celsius": temp_input,
+                    "annual_rainfall_mm": rainfall_input,
+                    "npk_fertilizer_kg_ha": fertilizer_input,
+                    "pesticide_volume_l_ha": pesticide_input
+                }
+                
+                soil_pil = Image.open(uploaded_soil_img).convert('RGB') if uploaded_soil_img else None
+                crop_pil = Image.open(uploaded_crop_img).convert('RGB') if uploaded_crop_img else None
+                
+                yield_report = analyze_multimodal_yield_with_gemini(soil_pil, crop_pil, payload, target_language, api_key)
+                
                 st.balloons()
-                st.metric(label="Predicted Crop Yield Production", value=f"{mock_prediction:.2f} Quintals/ha")
-
-    except Exception as e:
-        st.error(f"An error occurred during yield forecasting: {e}")
+                st.success("✅ Computational Forecast Matrix Generated!")
+                st.markdown(yield_report)
 
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR WITH TRANSLATION) ---
 with tab3:
@@ -311,7 +388,6 @@ with tab3:
 
                     client = genai.Client(api_key=api_key)
                     
-                    # Force the model to generate the response directly in the target Indian language
                     system_prompt = f"""
                     You are an expert agronomist. Answer this query professionally.
                     CRITICAL: You must answer the user query ENTIRELY in the following language: {target_language}.
