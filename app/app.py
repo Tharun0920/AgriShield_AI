@@ -99,16 +99,19 @@ def detect_location_data(location_text, user_api_key):
     
     prompt = f"""
     Based on the location "{location_text}" in India, identify the exact State, Agro-Climatic Region, District, and dominant Soil Type.
-    Format your response EXACTLY as a comma-separated list like this:
+    CRITICAL INSTRUCTION: Provide ONLY the 4 values separated by commas. DO NOT add any conversational text. DO NOT use markdown. DO NOT use backticks.
+    Format EXACTLY like this:
     State, Region, District, Soil Type
     Example: Andhra Pradesh, Southern Plateau, Chittoor, Red Loamy Soil
     """
     try:
         client = genai.Client(api_key=user_api_key)
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-        return response.text.strip()
-    except Exception:
-        return "Unknown, Unknown, Unknown, Unknown"
+        # Clean the response to strip unwanted markdown formatting
+        clean_text = response.text.replace("`", "").replace("csv", "").replace("\n", "").strip()
+        return clean_text
+    except Exception as e:
+        return f"API_ERROR: {e}"
 
 def validate_specific_image(image_data, expected_content, error_code, user_api_key):
     """Tab 2: Strict visual guardrail for soil and crop stage images."""
@@ -278,8 +281,9 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
+
 # ==========================================
-# TAB 2: ADVANCED YIELD & SOIL FORECAST (New AI Features)
+# TAB 2: ADVANCED YIELD & SOIL FORECAST
 # ==========================================
 with tab2:
     st.header("📊 Multi-Modal Yield & Soil Forecaster")
@@ -293,22 +297,35 @@ with tab2:
 
     with st.expander("📍 Step 1: AI Geographic & Soil Setup", expanded=True):
         st.write("Type your village, town, or pincode. Gemini AI will auto-fill your geography!")
-        loc_input = st.text_input("Enter Location:")
+        loc_input = st.text_input("Enter Location:", value="Mudigolam")
+        
         if st.button("✨ Detect Geography via AI"):
             if not api_key:
                 st.error("⚠️ API Key required for AI Detection.")
             else:
                 with st.spinner("Triangulating location and soil data..."):
                     detected = detect_location_data(loc_input, api_key)
-                    try:
-                        parts = detected.split(',')
-                        st.session_state.ai_state = parts[0].strip()
-                        st.session_state.ai_region = parts[1].strip()
-                        st.session_state.ai_district = parts[2].strip()
-                        st.session_state.ai_soil = parts[3].strip()
-                        st.success("✅ Location Synced!")
-                    except:
-                        st.warning("⚠️ Could not parse location perfectly. Please adjust manually below.")
+                    
+                    if detected and "API_ERROR" in detected:
+                        st.error(f"⚠️ Connection Error: {detected}")
+                    elif detected:
+                        try:
+                            # Split by comma and strip whitespace from each part safely
+                            parts = [p.strip() for p in detected.split(',')]
+                            
+                            # Ensure Gemini actually returned at least 4 parts
+                            if len(parts) >= 4:
+                                st.session_state.ai_state = parts[0]
+                                st.session_state.ai_region = parts[1]
+                                st.session_state.ai_district = parts[2]
+                                st.session_state.ai_soil = parts[3]
+                                st.success("✅ Location Synced! (Updates will reflect below)")
+                            else:
+                                st.warning(f"⚠️ AI returned incomplete data format: '{detected}'. Try running it again.")
+                        except Exception as e:
+                            st.warning(f"⚠️ Parsing Error: '{detected}' (Error: {e})")
+                    else:
+                        st.warning("⚠️ Received empty response from AI.")
         
         c1, c2 = st.columns(2)
         with c1:
