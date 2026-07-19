@@ -56,10 +56,10 @@ def load_yield_model():
         return pickle.load(f)
 
 
-def analyze_crop_image_with_gemini(image_data, category, user_api_key):
+def analyze_crop_image_with_gemini(image_data, category, target_language, user_api_key):
     """
     Validates the uploaded category using Gemini Vision, identifies the crop disease, 
-    and returns a highly detailed, human-understandable treatment plan.
+    and returns a highly detailed diagnostic report translated into the target Indian language.
     """
     if not user_api_key:
         return "⚠️ Please enter your Gemini API Key in the sidebar to generate a diagnostic report."
@@ -70,18 +70,20 @@ def analyze_crop_image_with_gemini(image_data, category, user_api_key):
     STEP 1: CLOSELY INSPECT THE UPLOADED IMAGE AND VERIFY IF IT CONTAINS A {category.upper()}. 
     If the image does NOT strictly contain a {category} (e.g., if it is a fruit but the current active category is a leaf, or if it is a random non-agricultural object/person), you must respond EXACTLY with the text: "ERROR: INVALID_CATEGORY". Do not add any formatting, extra explanation, or introductory words.
     
-    STEP 2: If the image matches the correct {category} profile, analyze the condition and provide a highly detailed, human-understandable diagnostic review.
+    STEP 2: If the image matches the correct {category} profile, analyze the condition and provide a highly detailed diagnostic review.
     
-    Format your response exactly using this Markdown structure:
+    CRITICAL LOCALIZATION REQUIREMENT: You MUST generate the entire output of STEP 2 (including headings, labels, bullet points, and descriptions) in the following language: {target_language}. Translate all English agricultural terms into clear, culturally clear expressions that a local Indian farmer speaking {target_language} can easily understand.
+    
+    Format your response structure exactly like this template, but fully translated into {target_language}:
     
     ## 🔬 Comprehensive Diagnosis
     * **Target Type:** {category.capitalize()} Analysis
-    * **Identified Crop/Plant Variety:** [Insert Name]
+    * **Identified Crop/Plant Variety:** [Insert Crop Name]
     * **Detected Pathological Condition:** [Insert Disease Name or Healthy Status]
     * **AI Diagnostic Confidence:** [High / Medium / Low]
     
     ## 📖 Disease Information & Overview
-    [Provide a comprehensive, detailed, paragraph-long overview explaining what the disease is in simple terms, how it damages the crop tissue, visible symptoms to watch out for, and the environmental factors that cause it.]
+    [Provide a comprehensive, detailed, paragraph-long overview explaining what the disease is in simple terms, how it damages the crop tissue, visible symptoms to watch out for, and environmental factors that cause it.]
     
     ## 🌱 Advanced Organic Fertilizers & Natural Remedies
     * **Remedy 1:** [Provide explicit instructions on preparation, mixing ratios, application timing, and frequency.]
@@ -129,8 +131,28 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # --- TAB 1: ADVANCED COMPUTER VISION ENGINE ---
 with tab1:
-    st.header("📸 Multimodal Crop Health & Pathology Center")
-    st.write("Select the specific category tab below to upload an image and launch an advanced visual health audit.")
+    st.header("📸 Multimodal Crop Health & Localization Center")
+    st.write("Configure your regional language preferences below, then choose a category to initiate the scan.")
+    
+    # --- TRANSLATION DROP-DOWN FEATURE ---
+    st.markdown("### 🌐 Regional Translation Settings")
+    indian_languages = [
+        "English",
+        "Hindi (हिन्दी)",
+        "Telugu (తెలుగు)",
+        "Tamil (தமிழ்)",
+        "Kannada (ಕನ್ನಡ)",
+        "Malayalam (മലയാളം)",
+        "Bengali (বাংলা)",
+        "Marathi (मराठी)",
+        "Gujarati (ગુજરાતી)",
+        "Odia (ଓଡ଼ିଆ)",
+        "Punjabi (ਪੰਜਾਬୀ)",
+        "Assamese (অસમীয়া)",
+        "Urdu (اردو)"
+    ]
+    selected_language = st.selectbox("Select target language for report generation:", options=indian_languages, index=0)
+    st.markdown("---")
     
     # Nested category tabs inside Tab 1
     sub_tab_leaf, sub_tab_fruit, sub_tab_veg = st.tabs([
@@ -153,8 +175,8 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner("Analyzing leaf structural data..."):
-                        report = analyze_crop_image_with_gemini(leaf_img, "leaf", api_key)
+                    with st.spinner(f"Analyzing leaf structural data and translating to {selected_language}..."):
+                        report = analyze_crop_image_with_gemini(leaf_img, "leaf", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a leaf. Please upload an image of a leaf only.")
@@ -177,8 +199,8 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner("Analyzing fruit surface metrics..."):
-                        report = analyze_crop_image_with_gemini(fruit_img, "fruit", api_key)
+                    with st.spinner(f"Analyzing fruit surface metrics and translating to {selected_language}..."):
+                        report = analyze_crop_image_with_gemini(fruit_img, "fruit", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a fruit. Please upload an image of a fruit only.")
@@ -201,8 +223,8 @@ with tab1:
                 if not api_key:
                     st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
                 else:
-                    with st.spinner("Analyzing vegetable tissue composition..."):
-                        report = analyze_crop_image_with_gemini(veg_img, "vegetable", api_key)
+                    with st.spinner(f"Analyzing vegetable tissue composition and translating to {selected_language}..."):
+                        report = analyze_crop_image_with_gemini(veg_img, "vegetable", selected_language, api_key)
                         
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a vegetable. Please upload an image of a vegetable only.")
