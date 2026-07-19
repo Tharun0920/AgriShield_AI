@@ -56,29 +56,42 @@ def load_yield_model():
         return pickle.load(f)
 
 
-def analyze_disease_with_gemini(image_data, user_api_key):
-    """Uses Gemini Vision to identify the disease and recommend a treatment plan."""
+def analyze_crop_component(image_data, expected_category, user_api_key):
+    """
+    Validates the image context (Leaf, Fruit, Vegetable) and generates 
+    a highly detailed diagnostic report with treatment plans using Gemini AI.
+    """
     if not user_api_key:
-        return "⚠️ Please enter your Gemini API Key in the sidebar to generate a diagnostic report."
+        return "⚠️ Please enter your Gemini API Key in the sidebar to run the diagnostic pipeline."
         
-    prompt = """
-    You are an expert agricultural scientist. Please analyze this crop leaf image.
+    prompt = f"""
+    You are an expert agricultural scientist and plant pathologist. 
+    You have been tasked to analyze an image that is strictly expected to be a **{expected_category}**.
+
+    **STEP 1: INPUT VALIDATION**
+    Examine the uploaded image carefully. Determine if the visual object is actually a {expected_category}. 
+    - If the image contains something else (e.g., a tool, a tractor, a person, or a different plant part like a fruit/vegetable when a leaf was expected), you must STOP immediately and return exactly this error message: "ERROR: INVALID_INPUT". Do not provide any diagnosis.
+
+    **STEP 2: PATHOLOGY & RECOMMENDATIONS**
+    If the image is validly a {expected_category}, proceed with this structured analysis:
+    1. Identify the crop variety and the specific disease, pest damage, or nutrient deficiency.
+    2. Provide a practical organic remedy map.
+    3. Provide targeted medicinal or chemical countermeasures.
+
+    Format your valid response exactly like this template:
     
-    1. Identify the crop and the specific disease or deficiency it has. (If it looks healthy, state that).
-    2. Provide a highly structured, concise treatment plan. 
-    
-    Format your response exactly like this:
-    
-    **🔬 Diagnosis:**
-    * [Crop Name] - [Disease/Health Status]
+    **🔬 Diagnosis Dashboard:**
+    * **Target Type:** {expected_category.capitalize()} Verified
+    * **Crop Identification:** [e.g., Tomato, Apple, Rice]
+    * **Condition Identified:** [Disease Name / Nutrient Deficiency / Healthy]
     
     **🌱 Organic Fertilizers & Remedies:**
-    * [Item 1]
-    * [Item 2]
+    * [Specific Organic Item 1 / Cultural Practice]
+    * [Specific Organic Item 2 / Natural Spray]
     
-    **🧪 Recommended Medicines/Chemical Cures:**
-    * [Item 1]
-    * [Item 2]
+    **🧪 Recommended Medicines & Chemical Cures:**
+    * [Specific Chemical Component / Commercial Fungicide 1]
+    * [Specific Dosage Instructions / Schedule]
     """
     
     try:
@@ -92,7 +105,7 @@ def analyze_disease_with_gemini(image_data, user_api_key):
         )
         return response.text
     except Exception as e:
-        return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
+        return f"⚠️ Diagnostic system runtime error: {e}"
 
 
 # Set up beautiful page title and icon
@@ -118,31 +131,93 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # --- TAB 1: COMPUTER VISION (DISEASE SCANNER) ---
 with tab1:
-    st.header("📸 AI Crop Disease Scanner")
-    st.write("Upload a clear photo of a crop leaf. Our Gemini Vision AI will identify the disease and provide a tailored treatment plan.")
-    
-    uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_file is not None:
-        try:
-            image = Image.open(uploaded_file).convert('RGB')
-            st.image(image, caption="Uploaded Crop Leaf", width=300)
+    st.header("📸 Advanced Crop Disease Diagnostics Hub")
+    st.markdown("Select the specific plant element you wish to scan. The system enforces category structural checking before processing.")
+
+    # Create sub-tabs inside Tab 1 for clear separation
+    sub_tab_leaf, sub_tab_fruit, sub_tab_vegetable = st.tabs([
+        "🌿 Leaf Analysis Section", 
+        "🍎 Fruit Analysis Section", 
+        "🥦 Vegetable Analysis Section"
+    ])
+
+    # --- 1. LEAF SECTION ---
+    with sub_tab_leaf:
+        st.subheader("Leaf Pathology Portal")
+        st.caption("🚨 Warning: This portal accepts ONLY crop leaf images. Other structures will trigger a validation failure.")
+        
+        leaf_file = st.file_uploader("Upload Leaf Image Asset...", type=["jpg", "jpeg", "png"], key="leaf_uploader")
+        
+        if leaf_file is not None:
+            image = Image.open(leaf_file).convert('RGB')
+            st.image(image, caption="Target Asset: Leaf", width=300)
             
-            if st.button("🔍 Analyze Disease & Get Treatment Plan"):
+            if st.button("🔍 Run Leaf Diagnostics Workflow", key="leaf_btn"):
                 if not api_key:
-                    st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+                    st.error("⚠️ Please enter your Gemini API Key in the left sidebar configuration first!")
                 else:
-                    with st.spinner("Gemini Vision AI is analyzing the leaf structure..."):
-                        
-                        diagnosis_report = analyze_disease_with_gemini(image, api_key)
+                    with st.spinner("Executing structural validation & scanning leaf layers..."):
+                        report = analyze_crop_component(image, "leaf", api_key)
                         
                         st.markdown("---")
-                        st.subheader("📋 Comprehensive AI Diagnostic Report")
-                        st.info(diagnosis_report)
-                        st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
+                        if "ERROR: INVALID_INPUT" in report:
+                            st.error("❌ Diagnostic Failure: The uploaded asset does not appear to be a **Leaf**. Please upload a clear image containing only plant leaves.")
+                        else:
+                            st.success("✅ Structural Verification Passed!")
+                            st.info(report)
+                            st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
+
+    # --- 2. FRUIT SECTION ---
+    with sub_tab_fruit:
+        st.subheader("Fruit Pathology Portal")
+        st.caption("🚨 Warning: This portal accepts ONLY crop fruit images. Other structures will trigger a validation failure.")
+        
+        fruit_file = st.file_uploader("Upload Fruit Image Asset...", type=["jpg", "jpeg", "png"], key="fruit_uploader")
+        
+        if fruit_file is not None:
+            image = Image.open(fruit_file).convert('RGB')
+            st.image(image, caption="Target Asset: Fruit", width=300)
+            
+            if st.button("🔍 Run Fruit Diagnostics Workflow", key="fruit_btn"):
+                if not api_key:
+                    st.error("⚠️ Please enter your Gemini API Key in the left sidebar configuration first!")
+                else:
+                    with st.spinner("Executing structural validation & scanning fruit skin surfaces..."):
+                        report = analyze_crop_component(image, "fruit", api_key)
                         
-        except Exception as e:
-            st.error(f"An error occurred during vision processing: {e}")
+                        st.markdown("---")
+                        if "ERROR: INVALID_INPUT" in report:
+                            st.error("❌ Diagnostic Failure: The uploaded asset does not appear to be a **Fruit**. Please upload a clear image containing only crop fruits.")
+                        else:
+                            st.success("✅ Structural Verification Passed!")
+                            st.info(report)
+                            st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
+
+    # --- 3. VEGETABLE SECTION ---
+    with sub_tab_vegetable:
+        st.subheader("Vegetable Pathology Portal")
+        st.caption("🚨 Warning: This portal accepts ONLY vegetable images. Other structures will trigger a validation failure.")
+        
+        veg_file = st.file_uploader("Upload Vegetable Image Asset...", type=["jpg", "jpeg", "png"], key="veg_uploader")
+        
+        if veg_file is not None:
+            image = Image.open(veg_file).convert('RGB')
+            st.image(image, caption="Target Asset: Vegetable", width=300)
+            
+            if st.button("🔍 Run Vegetable Diagnostics Workflow", key="veg_btn"):
+                if not api_key:
+                    st.error("⚠️ Please enter your Gemini API Key in the left sidebar configuration first!")
+                else:
+                    with st.spinner("Executing structural validation & scanning vegetable body..."):
+                        report = analyze_crop_component(image, "vegetable", api_key)
+                        
+                        st.markdown("---")
+                        if "ERROR: INVALID_INPUT" in report:
+                            st.error("❌ Diagnostic Failure: The uploaded asset does not appear to be a **Vegetable**. Please upload a clear image containing only vegetables.")
+                        else:
+                            st.success("✅ Structural Verification Passed!")
+                            st.info(report)
+                            st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
 
 # --- TAB 2: DATA SCIENCE (YIELD PREDICTOR) ---
 with tab2:
