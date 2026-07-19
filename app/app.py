@@ -108,62 +108,63 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
         return f"⚠️ Diagnostic system is currently unavailable. Error: {e}"
 
 
-def analyze_multimodal_yield_with_gemini(soil_img, crop_img, data_payload, target_lang, user_api_key):
+def forecast_yield_and_soil_with_gemini(soil_img, crop_img, state, region, district, specified_soil, area, target_lang, user_api_key):
     """
-    Uses Gemini Vision to parse soil images, germination/flowering images, and environmental data
-    to generate an advanced yield forecast and comprehensive soil restoration matrix.
+    Processes regional, geographic, text inputs, and dynamic multi-stage imagery to predict
+    soil quality, treatment improvements, and localized yield projections via Gemini AI.
     """
     if not user_api_key:
-        return "⚠️ Please enter your Gemini API Key in the sidebar to run the simulation engine."
-
-    prompt = f"""
-    You are an elite agricultural data scientist and soil chemist specialized in precision farming.
-    Analyze the provided inputs:
-    * Soil Image (If provided): Inspect color, granularity, and texture.
-    * Crop Stage Image (If provided): Inspect germination rate, flower density, and structural vigor.
-    * Environmental Context: {data_payload}
-    
-    Generate a rigorous, human-understandable forecast and land advisory report.
-    CRITICAL: YOU MUST TRANSLATE THE ENTIRE RESPONSE INTO THE FOLLOWING LANGUAGE: {target_lang}.
-    
-    Format the output structure exactly using this Markdown layout:
-    
-    ## 📊 Advanced Production & Yield Forecast
-    * **Estimated Production Capacity:** [Insert Predicted Numeric Value Range in Quintals/Hectare]
-    * **Early-Stage Growth Vigor Evaluation:** [Excellent / Stable / Poor based on crop image]
-    * **Key Micro-Climate Constraints:** [List any warning points related to temp/rainfall context]
-    
-    ## ⏳ Crop Development Insights (Germination / Flowering)
-    [Provide a detailed paragraph reviewing the crop growth stage shown in the image. Detail if germination density or flower health matches optimal targets for the given area size.]
-    
-    ## 🧪 Soil Quality Diagnostic Matrix
-    * **Observed Soil Textural Properties:** [e.g., Clayey loam, sandy, crusty topsoil]
-    * **Estimated Nutrient Vigor Level:** [High / Moderate / Severely Depleted]
-    * **Drainage & Aeration Rating:** [Good / Restrictive / Prone to Waterlogging]
-    
-    ## 📈 Actionable Soil Improvement Roadmap
-    * **Organic Remediation Steps:** [Detailed natural improvements: green manure, custom compost, biochar dosages based on soil type]
-    * **Mineral & Structural Tweaks:** [Targeted chemical/mineral additives or tillage adjustments to optimize production across the given area]
-    """
-
-    content_list = []
+        return "⚠️ Please enter your Gemini API Key in the sidebar to run the advanced forecasting model."
+        
+    contents = []
     if soil_img is not None:
-        content_list.append(soil_img)
+        contents.append(soil_img)
     if crop_img is not None:
-        content_list.append(crop_img)
-    content_list.append(prompt)
-
+        contents.append(crop_img)
+        
+    prompt = f"""
+    You are an expert AI data scientist specialized in geospatial agriculture and predictive crop analytics.
+    Analyze the provided parameters and multimodal visual cues to forecast yield and assess parameters.
+    
+    📋 Geopolitical & Physical Inputs:
+    - Target Indian State: {state}
+    - Target Regional Zone: {region}
+    - Target District: {district}
+    - User Categorized Soil Variant: {specified_soil}
+    - Operational Area Size: {area} Hectares
+    
+    Visual Feeds Attached:
+    - Soil Stratum Canvas: {"Yes" if soil_img else "No"}
+    - Early Stage Growth Canvas (Germination / Flowering): {"Yes" if crop_img else "No"}
+    
+    Functional Framework Objectives:
+    1. Geographic Validation: Audit the relationship between '{state}', '{region}', and '{district}'. Use your dynamic database to correct any positional anomalies.
+    2. Soil Parsing & Enrichment Strategy: If a soil image is provided, parse its structural traits (texture, organic density indicators, hydration values). Output a comprehensive Soil Quality Score and construct an explicit guide detailing "How to Improve Soil Quality". If no image is provided, generate a regional soil assessment baseline for {district}.
+    3. Growth Phase Trajectory: If a germination or crop flower image is attached, calculate development parameters, identify visible baseline strains, and project yield adjustment indexes based on plant density.
+    4. Data-Driven Yield Forecast Metric: Generate a crop yield projection including estimated metrics per hectare and cumulative metrics across the defined {area} Hectares.
+    
+    CRITICAL: TRANSLATE THE ENTIRE EXTRACTED INSIGHT BLUEPRINT INTO THE FOLLOWING LANGUAGE: {target_lang}.
+    
+    Format the response using these Markdown structural markers:
+    ## 🌍 Geographic & Regional Parameter Verification
+    ## 🪱 Dynamic Soil Quality Profile & Improvement Blueprints
+    ## 🌸 Growth Cycle Phase Evaluation (Germination/Flowering)
+    ## 📊 Predictive Multimodal Crop Yield Projections
+    """
+    contents.append(prompt)
+    
     try:
         if genai is None:
             return "⚠️ Google GenAI package is not available in this environment."
+            
         client = genai.Client(api_key=user_api_key)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=content_list,
+            contents=contents,
         )
         return response.text
     except Exception as e:
-        return f"⚠️ Yield analysis engine encountered an unexpected error: {e}"
+        return f"⚠️ Advanced analytics core failed to compile. Error: {e}"
 
 
 # Set up beautiful page title and icon
@@ -183,7 +184,7 @@ INDIAN_LANGUAGES = {
     "Punjabi (ਪੰਜਾਬੀ)": "Punjabi",
     "Odia (ଓଡ଼ିଆ)": "Odia",
     "Urdu (اُردو)": "Urdu",
-    "Assamese (অসময়ীয়া)": "Assamese",
+    "Assamese (অসমীয়া)": "Assamese",
     "Sanskrit (संस्कृतम्)": "Sanskrit"
 }
 
@@ -206,7 +207,7 @@ st.markdown("Welcome to your intelligent agricultural advisor dashboard. Select 
 # Create FOUR visual tabs at the top of the webpage
 tab1, tab2, tab3, tab4 = st.tabs([
     "📸 Crop Disease Diagnostics", 
-    "📊 Crop Yield Forecasting", 
+    "📊 Advanced Yield Forecasting", 
     "🤖 AI AgriShield Chat",
     "📈 Model Performance Analytics"
 ])
@@ -296,69 +297,68 @@ with tab1:
                             st.markdown(report)
                             st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
-# --- TAB 2: MULTIMODAL CROP YIELD & SOIL FORECASTING ---
+# --- TAB 2: ADVANCED MULTIMODAL CROP YIELD FORECASTER ---
 with tab2:
-    st.header("📊 Advanced Yield Forecasting & Soil Analytics Engine")
+    st.header("📊 Advanced Geospatial Yield & Soil Analytics")
     st.write(f"Current Output Language: **{selected_language_label}**")
-    st.write("Provide geographical inputs and upload crop growth images to execute a comprehensive yield projection.")
-
-    col_meta, col_env = st.columns(2)
+    st.write("Provide your physical geographic profile and attach visual stratum matrices to run the predictive analysis module.")
     
-    with col_meta:
-        st.subheader("🌐 Region & Soil Metadata")
-        soil_type = st.selectbox("Select Regional Soil Classification", [
-            "Alluvial Soil (Highly Fertile)", 
-            "Black Cotton Soil (Regur Clay)", 
-            "Red/Yellow Podzolic Soil", 
-            "Laterite Acidic Soil", 
-            "Arid/Sandy Desert Soil"
-        ])
-        cultivation_area = st.number_input("Cultivation Region Size (Hectares)", min_value=0.1, max_value=1000.0, value=1.0, step=0.5)
-        temp_input = st.number_input("Mean Regional Temperature (°C)", min_value=-10.0, max_value=60.0, value=28.0)
-        rainfall_input = st.number_input("Annual Expected Rainfall (mm)", min_value=0.0, max_value=5000.0, value=800.0)
-
-    with col_env:
-        st.subheader("🧪 Inputs & Treatment Parameters")
-        fertilizer_input = st.number_input("Nitrogen/Phosphorus/Potassium Additives applied (kg/ha)", min_value=0.0, max_value=500.0, value=120.0)
-        pesticide_input = st.number_input("Total Specialized Plant Protectors Applied (L/ha)", min_value=0.0, max_value=50.0, value=2.5)
+    # Textual Data Input Layout
+    col_geo1, col_geo2, col_geo3 = st.columns(3)
+    with col_geo1:
+        input_state = st.text_input("🎯 Target State / UT", placeholder="e.g., Andhra Pradesh", key="in_state")
+    with col_geo2:
+        input_region = st.text_input("📍 Regional Zone / Agro-Climate", placeholder="e.g., Rayalaseema", key="in_region")
+    with col_geo3:
+        input_district = st.text_input("🏢 District Name", placeholder="e.g., Chittoor", key="in_district")
+        
+    col_param1, col_param2 = st.columns(2)
+    with col_param1:
+        input_soil_variant = st.text_input("🌱 Soil Variety (Gemini Parsed Selection)", placeholder="e.g., Red Sandy Soil / Clay Loam", key="in_soil")
+    with col_param2:
+        input_area_size = st.number_input("📐 Total Operational Area Size (Hectares)", min_value=0.1, max_value=10000.0, value=1.0, step=0.5, key="in_area")
 
     st.markdown("---")
-    st.subheader("📷 Multimodal Vision Uploads")
-    col_img1, col_img2 = st.columns(2)
     
+    # Multimodal Visual Asset Layout
+    col_img1, col_img2 = st.columns(2)
     with col_img1:
-        uploaded_soil_img = st.file_uploader("Upload Soil Sample Canvas (For Texture & Quality Diagnosis)", type=["jpg", "jpeg", "png"], key="soil_img")
+        st.subheader("🤎 Soil Profile Matrix Upload")
+        st.caption("Attach an image of your field soil layout to calculate quality parameters.")
+        uploaded_soil_img = st.file_uploader("Upload Soil Image...", type=["jpg", "jpeg", "png"], key="soil_file_up")
         if uploaded_soil_img is not None:
-            st.image(Image.open(uploaded_soil_img).convert('RGB'), caption="Target: Soil Texture Profile", width=250)
+            soil_preview = Image.open(uploaded_soil_img).convert('RGB')
+            st.image(soil_preview, caption="Target Asset: Soil Matrix", width=260)
             
     with col_img2:
-        uploaded_crop_img = st.file_uploader("Upload Growth Stage Canvas (Germination / Flower Clusters)", type=["jpg", "jpeg", "png"], key="crop_stage_img")
+        st.subheader("🌸 Crop Growth Phase Upload")
+        st.caption("Attach an early growth snapshot containing germination leaves or crop flowers.")
+        uploaded_crop_img = st.file_uploader("Upload Growth Stage Image...", type=["jpg", "jpeg", "png"], key="crop_file_up")
         if uploaded_crop_img is not None:
-            st.image(Image.open(uploaded_crop_img).convert('RGB'), caption="Target: Crop Development Profile", width=250)
+            crop_preview = Image.open(uploaded_crop_img).convert('RGB')
+            st.image(crop_preview, caption="Target Asset: Germination / Flowering Phase", width=260)
 
-    if st.button("🚀 Execute Comprehensive Forecasting Pipeline"):
+    # Submission Engine Execution Block
+    if st.button("🚀 Execute Advanced Multimodal Forecasting Model", key="btn_run_forecaster"):
         if not api_key:
             st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+        elif not input_state or not input_district:
+            st.warning("⚠️ Geographic data alignment incomplete. Please fill out at least the State and District fields to ground the contextual matrix.")
         else:
-            with st.spinner("Processing vision inputs and running agricultural regression metrics..."):
-                # package context variables
-                payload = {
-                    "soil_type": soil_type,
-                    "area_hectares": cultivation_area,
-                    "temperature_celsius": temp_input,
-                    "annual_rainfall_mm": rainfall_input,
-                    "npk_fertilizer_kg_ha": fertilizer_input,
-                    "pesticide_volume_l_ha": pesticide_input
-                }
-                
-                soil_pil = Image.open(uploaded_soil_img).convert('RGB') if uploaded_soil_img else None
-                crop_pil = Image.open(uploaded_crop_img).convert('RGB') if uploaded_crop_img else None
-                
-                yield_report = analyze_multimodal_yield_with_gemini(soil_pil, crop_pil, payload, target_language, api_key)
-                
-                st.balloons()
-                st.success("✅ Computational Forecast Matrix Generated!")
-                st.markdown(yield_report)
+            with st.spinner("Processing multimodal metrics and regional weather variables..."):
+                forecast_report = forecast_yield_and_soil_with_gemini(
+                    soil_img=soil_preview if uploaded_soil_img is not None else None,
+                    crop_img=crop_preview if uploaded_crop_img is not None else None,
+                    state=input_state,
+                    region=input_region,
+                    district=input_district,
+                    specified_soil=input_soil_variant,
+                    area=input_area_size,
+                    target_lang=target_language,
+                    user_api_key=api_key
+                )
+                st.success("✅ Analytics Blueprint Compiled Successfully!")
+                st.markdown(forecast_report)
 
 # --- TAB 3: GENERATIVE AI (EXPERT ADVISOR WITH TRANSLATION) ---
 with tab3:
