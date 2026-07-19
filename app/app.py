@@ -27,8 +27,7 @@ YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 PART0 = MODEL_DIR / "yield_model.pkl.part0"
 PART1 = MODEL_DIR / "yield_model.pkl.part1"
 
-# FIX: Added Streamlit caching to prevent macOS mutex deadlocks
-@st.cache_resource
+
 def load_vision_model():
     if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
         return None
@@ -38,8 +37,7 @@ def load_vision_model():
     except Exception:
         return None
 
-# FIX: Added Streamlit caching to prevent macOS mutex deadlocks
-@st.cache_resource
+
 def load_yield_model():
     if YIELD_MODEL_PATH.exists():
         with YIELD_MODEL_PATH.open("rb") as f:
@@ -47,7 +45,6 @@ def load_yield_model():
 
     part_paths = sorted(MODEL_DIR.glob("yield_model.pkl.part*"))
     if not part_paths:
-        # FIX: Return None instead of raising FileNotFoundError to allow Simulation Mode
         return None
 
     with YIELD_MODEL_PATH.open("wb") as outfile:
@@ -57,6 +54,40 @@ def load_yield_model():
 
     with YIELD_MODEL_PATH.open("rb") as f:
         return pickle.load(f)
+
+
+def get_treatment_plan(disease_name, user_api_key):
+    """Generates an organic and medicinal treatment plan using Gemini API."""
+    if not user_api_key:
+        return "⚠️ Please enter your Gemini API Key in the sidebar to generate a treatment plan."
+        
+    prompt = f"""
+    You are an expert agricultural scientist. A farmer's crop has just been diagnosed with '{disease_name}'.
+    Please provide a highly structured, concise treatment plan. 
+    
+    Format your response exactly like this:
+    
+    **🌱 Organic Fertilizers & Remedies:**
+    * [Item 1]
+    * [Item 2]
+    
+    **🧪 Recommended Medicines/Chemical Cures:**
+    * [Item 1]
+    * [Item 2]
+    """
+    
+    try:
+        if genai is None:
+            return "⚠️ Google GenAI package is not available in this environment."
+            
+        client = genai.Client(api_key=user_api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        return f"⚠️ Treatment recommendation system is currently unavailable. Error: {e}"
 
 
 # Set up beautiful page title and icon
@@ -97,6 +128,8 @@ with tab1:
             # Try to load the real model
             vision_model = load_vision_model()
             
+            predicted_disease = "Unknown" # Default fallback
+            
             if vision_model is not None:
                 img_resized = image.resize((224, 224))
                 img_array = np.array(img_resized)
@@ -106,15 +139,26 @@ with tab1:
                 predicted_class_index = np.argmax(predictions)
                 confidence = np.max(predictions) * 100
                 
-                st.success(f"Analysis Complete! Predicted Class Index: {predicted_class_index} (Confidence: {confidence:.2f}%)")
+                predicted_disease = f"Class {predicted_class_index}"
+                st.success(f"**Diagnosis Complete:** {predicted_disease} (Confidence: {confidence:.2f}%)")
                 
             else:
                 if DISEASE_MODEL_PATH.exists():
-                    st.warning("Disease model file is present, but TensorFlow is unavailable in this environment. Running in Simulation Mode.")
+                    st.warning("Disease model file is present, but TensorFlow is unavailable. Running in Simulation Mode.")
                 else:
                     st.warning("Vision model file not found in 'models/'. Running in Simulation Mode.")
 
-                st.success("Simulation Success: Leaf looks mostly Healthy with minor Nitrogen deficiency!")
+                predicted_disease = "Minor Nitrogen Deficiency"
+                st.success(f"**Diagnosis Complete:** {predicted_disease}")
+            
+            # --- NEW AGENTIC CHAINING LOGIC ---
+            with st.spinner("Generating expert treatment plan using Gemini AI..."):
+                treatment_plan = get_treatment_plan(predicted_disease, api_key)
+                
+                st.markdown("---")
+                st.subheader("📋 Recommended Action Plan")
+                st.info(treatment_plan)
+                st.caption("*Disclaimer: Always verify chemical treatments with local agricultural authorities before application.*")
                 
         except Exception as e:
             st.error(f"An error occurred during vision processing: {e}")
@@ -145,7 +189,6 @@ with tab2:
                 st.balloons()
                 st.metric(label="Predicted Crop Yield Production", value=f"{prediction[0]:.2f}")
         else:
-            # FIX: Removed the st.warning() line so it runs silently!
             expected_features = ["Temperature (°C)", "Rainfall (mm)", "Fertilizer (kg/ha)", "Pesticide (L/ha)"]
             st.write(f"This simulated model expects **{len(expected_features)}** specific data points. Please fill them out below:")
 
@@ -158,7 +201,6 @@ with tab2:
                     user_inputs.append(val)
 
             if st.button("Forecast Total Yield"):
-                # Basic mock math to simulate a model output
                 mock_prediction = 35.0 + (user_inputs[0] * 0.1) + (user_inputs[1] * 0.05) + (user_inputs[2] * 0.15)
                 st.balloons()
                 st.metric(label="Predicted Crop Yield Production", value=f"{mock_prediction:.2f} Quintals/ha")
