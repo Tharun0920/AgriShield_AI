@@ -23,9 +23,6 @@ MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 
-PART0 = MODEL_DIR / "yield_model.pkl.part0"
-PART1 = MODEL_DIR / "yield_model.pkl.part1"
-
 def load_vision_model():
     if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
         return None
@@ -52,7 +49,7 @@ def load_yield_model():
         return pickle.load(f)
 
 # ==========================================
-# GEMINI AI HELPER FUNCTIONS
+# GEMINI & API HELPER FUNCTIONS
 # ==========================================
 
 def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_key):
@@ -92,33 +89,13 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
     except Exception as e:
         return f"⚠️ API Error: {e}"
 
-def detect_location_data(location_text, user_api_key):
-    """Tab 2: Uses Gemini to auto-detect geographic and soil data."""
-    if not user_api_key:
-        return None
-    
-    prompt = f"""
-    Based on the location "{location_text}" in India, identify the exact State, Agro-Climatic Region, District, and dominant Soil Type.
-    CRITICAL INSTRUCTION: Provide ONLY the 4 values separated by commas. DO NOT add any conversational text. DO NOT use markdown. DO NOT use backticks.
-    Format EXACTLY like this:
-    State, Region, District, Soil Type
-    Example: Andhra Pradesh, Southern Plateau, Chittoor, Red Loamy Soil
-    """
-    try:
-        client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-        # Clean the response to strip unwanted markdown formatting
-        clean_text = response.text.replace("`", "").replace("csv", "").replace("\n", "").strip()
-        return clean_text
-    except Exception as e:
-        return f"API_ERROR: {e}"
-
 def validate_specific_image(image_data, expected_content, error_code, user_api_key):
-    """Tab 2: Strict visual guardrail for soil and crop stage images."""
+    """Tab 2: STRICT visual guardrail for soil and crop stage images."""
     prompt = f"""
-    Analyze this image. Does it clearly show {expected_content}?
-    If YES, respond with "VALID".
-    If NO (it is a person, random object, or wrong stage/item), respond EXACTLY with "{error_code}".
+    Analyze this image STRICTLY. Does it CLEARLY and EXCLUSIVELY show {expected_content}?
+    If YES, respond EXACTLY with "VALID".
+    If NO (e.g., it shows unrelated objects, people, animals, UI screenshots, or the wrong agricultural stage), respond EXACTLY with "{error_code}".
+    Do not provide any other text, explanation, or markdown. Only output VALID or {error_code}.
     """
     try:
         client = genai.Client(api_key=user_api_key)
@@ -127,35 +104,50 @@ def validate_specific_image(image_data, expected_content, error_code, user_api_k
     except Exception:
         return "API_ERROR"
 
-def generate_advanced_yield_report(soil_img, crop_img, geo_data, numeric_data, rf_prediction, target_lang, user_api_key):
-    """Tab 2: Generates the massive, multi-modal yield and soil quality report."""
-    prompt = f"""
-    You are an expert Agronomist. Analyze the provided Soil Image and Early Crop Stage Image, along with the data below.
+def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_prediction, target_lang, user_api_key):
+    """Tab 2: Generates the dynamic yield and soil quality report based on available images."""
+    contents_list = []
+    dynamic_instructions = ""
     
-    Data:
-    - Geography & Soil: {geo_data}
-    - Environment: {numeric_data}
-    - Base ML Yield Prediction (Per Hectare): {rf_prediction}
-    
-    Generate a detailed report. TRANSLATE ENTIRELY INTO {target_lang}.
-    
-    Format using Markdown:
+    if soil_img:
+        contents_list.append(soil_img)
+        dynamic_instructions += """
     ## 🌍 Soil Quality Analysis
-    [Analyze the soil image. Predict its current health, texture, and nutrient capacity based on visual appearance and geographic data.]
+    [Analyze the provided soil image. Predict its current health, texture, and nutrient capacity strictly based on its visual appearance.]
     
     ## 🛠️ Soil Improvement Strategy
     * [Actionable organic method to improve this specific soil]
     * [Actionable chemical/fertilizer method to improve this specific soil]
-    
+        """
+        
+    if crop_img:
+        contents_list.append(crop_img)
+        dynamic_instructions += """
     ## 🌱 Crop Germination/Early Stage Assessment
-    [Analyze the crop image. How healthy is the initial development phase? Are there early signs of stress?]
+    [Analyze the crop image. How healthy is the initial development phase? Are there early signs of stress visible?]
+        """
+
+    prompt = f"""
+    You are an expert Agronomist. Analyze the provided Image(s) along with the data below.
+    
+    Data:
+    - Environment Inputs: {numeric_data}
+    - Base ML Yield Prediction (Per Hectare): {rf_prediction}
+    
+    Generate a detailed report based ONLY on the images and data provided. TRANSLATE ENTIRELY INTO {target_lang}.
+    
+    Format using Markdown:
+    {dynamic_instructions}
     
     ## 📊 Final Yield Forecast & Recommendations
-    [Combine the Base ML Prediction with your visual analysis to give a final verdict on expected yield. Suggest precise actions to maximize output.]
+    [Combine the Base ML Prediction with your visual analysis of the provided images to give a final verdict on expected yield. Suggest precise actions to maximize output based on the environmental inputs.]
     """
+    
+    contents_list.append(prompt)
+    
     try:
         client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=[soil_img, crop_img, prompt])
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=contents_list)
         return response.text
     except Exception as e:
         return f"⚠️ Report Generation Error: {e}"
@@ -175,9 +167,10 @@ INDIAN_LANGUAGES = {
 }
 
 with st.sidebar:
-    st.header("⚙️ Settings & Customization")
-    api_key = st.text_input("Gemini API Key", type="password")
-    st.markdown("[Get your free key here](https://aistudio.google.com/app/apikey)")
+    st.header("⚙️ Settings & API Keys")
+    
+    api_key = st.text_input("Gemini API Key (Required)", type="password")
+    st.markdown("[Get your free Gemini Key here](https://aistudio.google.com/app/apikey)")
     
     st.markdown("---")
     st.subheader("🌐 Translation Settings")
@@ -195,7 +188,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: DISEASE DIAGNOSTICS (Preserved)
+# TAB 1: DISEASE DIAGNOSTICS
 # ==========================================
 
 with tab1:
@@ -203,14 +196,12 @@ with tab1:
     st.write(f"Current Output Language: **{selected_language_label}**")
     st.write("Select the specific category tab below to upload an image and launch an advanced visual health audit.")
     
-    # Nested category tabs inside Tab 1
     sub_tab_leaf, sub_tab_fruit, sub_tab_veg = st.tabs([
         "🍃 Leaf Diagnostics", 
         "🍎 Fruit Diagnostics", 
         "🥦 Vegetable Diagnostics"
     ])
     
-    # --- SUB-SECTION 1: LEAF ---
     with sub_tab_leaf:
         st.subheader("Leaf Disease & Deficiency Analysis")
         st.caption("⚠️ Ensure the uploaded image contains ONLY crop leaves.")
@@ -226,15 +217,12 @@ with tab1:
                 else:
                     with st.spinner("Analyzing leaf structural data..."):
                         report = analyze_crop_image_with_gemini(leaf_img, "leaf", target_language, api_key)
-                        
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a leaf. Please upload an image of a leaf only.")
                         else:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
-                            st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
-    # --- SUB-SECTION 2: FRUIT ---
     with sub_tab_fruit:
         st.subheader("Fruit Pathology & Infection Analysis")
         st.caption("⚠️ Ensure the uploaded image contains ONLY crop fruits.")
@@ -250,15 +238,12 @@ with tab1:
                 else:
                     with st.spinner("Analyzing fruit surface metrics..."):
                         report = analyze_crop_image_with_gemini(fruit_img, "fruit", target_language, api_key)
-                        
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a fruit. Please upload an image of a fruit only.")
                         else:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
-                            st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
-    # --- SUB-SECTION 3: VEGETABLE ---
     with sub_tab_veg:
         st.subheader("Vegetable Tissue Health Analysis")
         st.caption("⚠️ Ensure the uploaded image contains ONLY crop vegetables.")
@@ -274,149 +259,127 @@ with tab1:
                 else:
                     with st.spinner("Analyzing vegetable tissue composition..."):
                         report = analyze_crop_image_with_gemini(veg_img, "vegetable", target_language, api_key)
-                        
                         if "ERROR: INVALID_CATEGORY" in report:
                             st.error("❌ Diagnostic Error: The uploaded image does not appear to contain a vegetable. Please upload an image of a vegetable only.")
                         else:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
-                            st.caption(f"*Disclaimer: Verify chemical treatment suggestions with local agricultural extension offices before application.*")
 
 # ==========================================
 # TAB 2: ADVANCED YIELD & SOIL FORECAST
 # ==========================================
 with tab2:
-    st.header("📊 Multi-Modal Yield & Soil Forecaster")
+    st.header("📊 Yield Predictor & Soil Forecaster")
     st.write(f"Language: **{selected_language_label}**")
-    
-    # Session state for dynamic AI location
-    if "ai_state" not in st.session_state: st.session_state.ai_state = "Andhra Pradesh"
-    if "ai_region" not in st.session_state: st.session_state.ai_region = "Southern Plateau"
-    if "ai_district" not in st.session_state: st.session_state.ai_district = "Chittoor"
-    if "ai_soil" not in st.session_state: st.session_state.ai_soil = "Red Loamy Soil"
-    if "ai_pincode" not in st.session_state: st.session_state.ai_pincode = "517112"
 
-    with st.expander("📍 Step 1: AI Geographic & Soil Setup", expanded=True):
-        st.write("Type your village, town, or pincode. Gemini AI will auto-fill your geography!")
-        loc_input = st.text_input("Enter Location:", value="Mudigolam")
-        
-        if st.button("✨ Detect Geography via AI"):
-            if not api_key:
-                st.error("⚠️ API Key required for AI Detection.")
-            else:
-                with st.spinner("Triangulating location and soil data..."):
-                    detected = detect_location_data(loc_input, api_key)
-                    
-                    if detected and "API_ERROR" in detected:
-                        st.error(f"⚠️ Connection Error: {detected}")
-                    elif detected:
-                        try:
-                            # Split by comma and strip whitespace from each part safely
-                            parts = [p.strip() for p in detected.split(',')]
-                            
-                            # Ensure Gemini actually returned at least 5 parts
-                            if len(parts) >= 5:
-                                st.session_state.ai_state = parts[0]
-                                st.session_state.ai_region = parts[1]
-                                st.session_state.ai_district = parts[2]
-                                st.session_state.ai_soil = parts[3]
-                                st.session_state.ai_pincode = parts[4]
-                                st.success("✅ Location & Pincode Synced! (Updates will reflect below)")
-                            else:
-                                st.warning(f"⚠️ AI returned incomplete data format: '{detected}'. Try running it again.")
-                        except Exception as e:
-                            st.warning(f"⚠️ Parsing Error: '{detected}' (Error: {e})")
-                    else:
-                        st.warning("⚠️ Received empty response from AI.")
-        
+    # --- STEP 1: METRICS & YIELD CALCULATION ---
+    with st.expander("🧪 Step 1: Environmental Metrics & Base Yield Analysis", expanded=True):
+        st.write("Enter your environmental data to instantly calculate the estimated crop produce per hectare.")
         c1, c2 = st.columns(2)
         with c1:
-            state_in = st.text_input("State", value=st.session_state.ai_state)
-            district_in = st.text_input("District", value=st.session_state.ai_district)
-            pincode_in = st.text_input("Pincode", value=st.session_state.ai_pincode)
             area_in = st.number_input("Total Land Area (Hectares)", min_value=0.1, value=1.0)
-        with c2:
-            region_in = st.text_input("Agro-Climatic Region", value=st.session_state.ai_region)
-            soil_in = st.text_input("Soil Type", value=st.session_state.ai_soil)
-
-    with st.expander("🧪 Step 2: Environmental Metrics", expanded=True):
-        c3, c4 = st.columns(2)
-        with c3:
             temp_in = st.number_input("Temperature (°C)", value=28.0)
             rain_in = st.number_input("Rainfall (mm)", value=150.0)
-        with c4:
+        with c2:
             fert_in = st.number_input("Fertilizer (kg/ha)", value=120.0)
             pest_in = st.number_input("Pesticide (L/ha)", value=2.0)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("📊 Analyze Yield (Crop Produce per Hectare)", type="primary"):
+            base_yield_per_ha = 0.0
+            yield_model = load_yield_model()
+            
+            if yield_model is not None:
+                input_df = pd.DataFrame([[temp_in, rain_in, fert_in, pest_in]], columns=yield_model.feature_names_in_)
+                base_yield_per_ha = yield_model.predict(input_df)[0]
+            else:
+                base_yield_per_ha = 35.0 + (temp_in * 0.1) + (rain_in * 0.05) + (fert_in * 0.15)
+            
+            total_est_yield = base_yield_per_ha * area_in
+            
+            st.success("✅ Yield Calculation Complete!")
+            metric_col1, metric_col2 = st.columns(2)
+            metric_col1.metric("Est. Yield Per Hectare", f"{base_yield_per_ha:.2f} Quintals/ha")
+            metric_col2.metric(f"Total Yield for {area_in} Hectares", f"{total_est_yield:.2f} Quintals")
+            
+            # Save the metric in session state so it can be passed to the Gemini report in Step 2
+            st.session_state.current_yield_prediction = f"{base_yield_per_ha:.2f} Quintals/ha"
 
-    with st.expander("📸 Step 3: Multi-Modal Visual Uploads", expanded=True):
-        c5, c6 = st.columns(2)
-        with c5:
+    # --- STEP 2: MULTI-MODAL VISUAL UPLOADS ---
+    with st.expander("📸 Step 2: AI Visual Agronomy Report (Optional)", expanded=True):
+        st.write("Upload strictly valid images below to generate a comprehensive AI visual report alongside your yield forecast.")
+        c3, c4 = st.columns(2)
+        with c3:
             st.subheader("1. Soil Sample Texture")
-            st.caption("Upload an image of your bare soil.")
+            st.caption("Upload an image of ONLY bare soil.")
             soil_upload = st.file_uploader("Upload Soil Image", type=["jpg", "jpeg", "png"], key="soil_img")
-        with c6:
+        with c4:
             st.subheader("2. Initial Crop Development Phase")
-            st.caption("Upload an image of crop germination or early flowers.")
+            st.caption("Upload an image of ONLY early crop germination or small seedlings.")
             crop_upload = st.file_uploader("Upload Crop Stage Image", type=["jpg", "jpeg", "png"], key="crop_img")
 
-    if st.button("🚀 Analyze Yield, Soil Quality & Generate Report"):
-        if not api_key:
-            st.error("⚠️ Please enter your Gemini API Key in the sidebar.")
-        elif not soil_upload or not crop_upload:
-            st.error("⚠️ Please upload BOTH the Soil Sample image and the Initial Crop Phase image to proceed.")
-        else:
-            soil_img_pil = Image.open(soil_upload).convert('RGB')
-            crop_img_pil = Image.open(crop_upload).convert('RGB')
-            
-            with st.spinner("Validating visual data streams..."):
-                soil_val = validate_specific_image(soil_img_pil, "bare soil or dirt on the ground", "ERROR: INVALID_SOIL_IMAGE", api_key)
-                crop_val = validate_specific_image(crop_img_pil, "early crop growth, small plants, crop germination, or crop flowers", "ERROR: INVALID_CROP_STAGE_IMAGE", api_key)
-                
-            if "INVALID_SOIL_IMAGE" in soil_val:
-                st.error("❌ Guardrail Error: The uploaded Soil image does not appear to be soil. Please upload a valid soil texture image.")
-            elif "INVALID_CROP_STAGE_IMAGE" in crop_val:
-                st.error("❌ Guardrail Error: The uploaded Crop image does not appear to show early crop development or flowers. Please upload a valid image.")
+        if st.button("🚀 Generate AI Agronomy Report"):
+            if not api_key:
+                st.error("⚠️ Please enter your Gemini API Key in the sidebar.")
+            elif not soil_upload and not crop_upload:
+                st.error("⚠️ Please upload AT LEAST ONE image to proceed.")
             else:
-                st.success("✅ Visuals Verified. Processing Advanced Analysis...")
+                soil_img_pil = None
+                crop_img_pil = None
+                soil_val = "VALID"
+                crop_val = "VALID"
                 
-                # 1. Base Machine Learning Prediction
-                base_yield_per_ha = 0.0
-                yield_model = load_yield_model()
-                if yield_model is not None:
-                    # Assuming model uses Temp, Rain, Fert, Pest
-                    input_df = pd.DataFrame([[temp_in, rain_in, fert_in, pest_in]], columns=yield_model.feature_names_in_)
-                    base_yield_per_ha = yield_model.predict(input_df)[0]
+                with st.spinner("Strictly validating visual data streams..."):
+                    if soil_upload:
+                        soil_img_pil = Image.open(soil_upload).convert('RGB')
+                        # Strict validation for Soil
+                        soil_val = validate_specific_image(
+                            soil_img_pil, 
+                            "ONLY bare soil, dirt, or earth on the ground. NO plants, NO people, NO unrelated objects.", 
+                            "ERROR: INVALID_SOIL_IMAGE", 
+                            api_key
+                        )
+                    
+                    if crop_upload:
+                        crop_img_pil = Image.open(crop_upload).convert('RGB')
+                        # Strict validation for Early Crop
+                        crop_val = validate_specific_image(
+                            crop_img_pil, 
+                            "ONLY early crop growth, small plants, crop germination, or emerging seedlings. NO mature plants, NO bare soil alone, NO unrelated objects.", 
+                            "ERROR: INVALID_CROP_STAGE_IMAGE", 
+                            api_key
+                        )
+                    
+                # Guardrail Error Checking
+                if "INVALID_SOIL_IMAGE" in soil_val:
+                    st.error("❌ Guardrail Error: The uploaded image does NOT strictly show bare soil. Please upload a valid soil texture image only.")
+                elif "INVALID_CROP_STAGE_IMAGE" in crop_val:
+                    st.error("❌ Guardrail Error: The uploaded image does NOT strictly show early crop development. Please upload a valid seedling/germination image only.")
                 else:
-                    base_yield_per_ha = 35.0 + (temp_in * 0.1) + (rain_in * 0.05) + (fert_in * 0.15)
-                
-                total_est_yield = base_yield_per_ha * area_in
-                
-                # Show Base Metrics
-                c7, c8 = st.columns(2)
-                c7.metric("Est. Yield Per Hectare", f"{base_yield_per_ha:.2f} Q/ha")
-                c8.metric(f"Total Yield for {area_in} Hectares", f"{total_est_yield:.2f} Quintals")
-                
-                # 2. Gemini Multi-Modal Detailed Report
-                with st.spinner(f"Generating localized Agronomy Report in {target_language}..."):
-                    # We pass the pincode_in variable to Gemini as part of the geographic context
-                    geo_data = f"State: {state_in}, Region: {region_in}, District: {district_in}, Pincode: {pincode_in}, Soil: {soil_in}, Area: {area_in} Ha"
-                    env_data = f"Temp: {temp_in}°C, Rain: {rain_in}mm, Fert: {fert_in}kg/ha, Pest: {pest_in}L/ha"
+                    st.success("✅ Visuals Verified. Processing Advanced Analysis...")
                     
-                    final_report = generate_advanced_yield_report(
-                        soil_img_pil, crop_img_pil, geo_data, env_data, f"{base_yield_per_ha:.2f} Quintals/ha", target_language, api_key
-                    )
+                    # Fetch the yield prediction from session state if it exists, otherwise provide a fallback
+                    yield_val = st.session_state.get("current_yield_prediction", "Please run Step 1 calculation first.")
                     
-                    st.markdown("---")
-                    st.markdown(f"### 📋 AI Multi-Modal Yield & Soil Analysis ({selected_language_label})")
-                    st.info(final_report)
+                    with st.spinner(f"Generating dynamic localized Agronomy Report in {target_language}..."):
+                        env_data = f"Area: {area_in} Ha, Temp: {temp_in}°C, Rain: {rain_in}mm, Fert: {fert_in}kg/ha, Pest: {pest_in}L/ha"
+                        
+                        final_report = generate_advanced_yield_report(
+                            soil_img_pil, crop_img_pil, env_data, yield_val, target_language, api_key
+                        )
+                        
+                        st.markdown("---")
+                        st.markdown(f"### 📋 AI Multi-Modal Yield & Soil Analysis ({selected_language_label})")
+                        st.info(final_report)
+
 
 # ==========================================
-# TAB 3: GENERATIVE AI CHAT (Preserved)
+# TAB 3: GENERATIVE AI CHAT
 # ==========================================
 
 with tab3:
     st.header("🤖 GenAI AgriShield Chat")
-    st.write(f"Chat Mode Language: **{selected_language_label}** (Change this via the sidebar setting anytime).")
+    st.write(f"Chat Mode Language: **{selected_language_label}**")
     
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -441,11 +404,9 @@ with tab3:
 
                     client = genai.Client(api_key=api_key)
                     
-                    # Force the model to generate the response directly in the target Indian language
                     system_prompt = f"""
                     You are an expert agronomist. Answer this query professionally.
                     CRITICAL: You must answer the user query ENTIRELY in the following language: {target_language}.
-                    Do not use English if the selected language is different.
                     
                     User Query: {prompt}
                     """
@@ -464,7 +425,7 @@ with tab3:
                     st.error(f"Error connecting to AI Server: {e}")
                     
 # ==========================================
-# TAB 4: ANALYTICS (Preserved)
+# TAB 4: ANALYTICS
 # ==========================================
 
 with tab4:
