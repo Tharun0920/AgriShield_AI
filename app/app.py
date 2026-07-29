@@ -49,7 +49,7 @@ def load_yield_model():
         return pickle.load(f)
 
 # ==========================================
-# GEMINI & API HELPER FUNCTIONS
+# GEMINI & API HELPER FUNCTIONS (WITH ERROR HANDLING)
 # ==========================================
 
 def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_key):
@@ -87,6 +87,8 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
         response = client.models.generate_content(model="gemini-2.5-flash", contents=[image_data, prompt])
         return response.text
     except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and click the analyze button again."
         return f"⚠️ API Error: {e}"
 
 def validate_specific_image(image_data, expected_content, error_code, user_api_key):
@@ -101,7 +103,9 @@ def validate_specific_image(image_data, expected_content, error_code, user_api_k
         client = genai.Client(api_key=user_api_key)
         response = client.models.generate_content(model="gemini-2.5-flash", contents=[image_data, prompt])
         return response.text.strip()
-    except Exception:
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "RATE_LIMIT_ERROR"
         return "API_ERROR"
 
 def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_prediction, target_lang, user_api_key):
@@ -150,6 +154,8 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
         response = client.models.generate_content(model="gemini-2.5-flash", contents=contents_list)
         return response.text
     except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and click Generate again."
         return f"⚠️ Report Generation Error: {e}"
 
 
@@ -351,7 +357,9 @@ with tab2:
                         )
                     
                 # Guardrail Error Checking
-                if "INVALID_SOIL_IMAGE" in soil_val:
+                if "RATE_LIMIT_ERROR" in soil_val or "RATE_LIMIT_ERROR" in crop_val:
+                    st.error("⚠️ **API Rate Limit Exceeded.** Please wait 30 seconds and click Generate again.")
+                elif "INVALID_SOIL_IMAGE" in soil_val:
                     st.error("❌ Guardrail Error: The uploaded image does NOT strictly show bare soil. Please upload a valid soil texture image only.")
                 elif "INVALID_CROP_STAGE_IMAGE" in crop_val:
                     st.error("❌ Guardrail Error: The uploaded image does NOT strictly show early crop development. Please upload a valid seedling/germination image only.")
@@ -422,7 +430,10 @@ with tab3:
 
                     st.session_state.messages.append({"role": "assistant", "content": ai_answer})
                 except Exception as e:
-                    st.error(f"Error connecting to AI Server: {e}")
+                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                        st.error("⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and ask your question again.")
+                    else:
+                        st.error(f"Error connecting to AI Server: {e}")
                     
 # ==========================================
 # TAB 4: ANALYTICS
