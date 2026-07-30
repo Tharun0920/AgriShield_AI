@@ -5,9 +5,11 @@ import streamlit as st
 from PIL import Image
 import os
 import numpy as np
+import io
 
 try:
     import google.genai as genai
+    from google.genai import types
 except ImportError:
     genai = None
 
@@ -55,7 +57,7 @@ def load_yield_model():
 def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_key):
     """Tab 1: Validates and diagnoses crop diseases."""
     if not user_api_key:
-        return "⚠️ Please enter your Gemini API Key in the sidebar."
+        return "⚠️ System Error: No API Key configured on server."
         
     prompt = f"""
     You are an expert agricultural scientist. 
@@ -158,6 +160,21 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
             return "⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and click Generate again."
         return f"⚠️ Report Generation Error: {e}"
 
+def extract_docx_text(file_bytes):
+    """Extracts text content from a DOCX file."""
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        full_text = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(full_text)
+    except ImportError:
+        try:
+            return file_bytes.decode('utf-8', errors='ignore')
+        except Exception:
+            return "[DOCX Content Extracted]"
+    except Exception as e:
+        return f"[Error parsing DOCX content: {e}]"
+
 
 # ==========================================
 # PAGE CONFIGURATION & SIDEBAR
@@ -172,11 +189,30 @@ INDIAN_LANGUAGES = {
     "Assamese (অসমীয়া)": "Assamese", "Sanskrit (संस्कृतम्)": "Sanskrit"
 }
 
+# 1. AUTOMATIC BACKEND API KEY RESOLUTION
+# This looks for the key in Streamlit Secrets or Environment Variables
+DEFAULT_API_KEY = ""
+try:
+    DEFAULT_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
+except Exception:
+    DEFAULT_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
 with st.sidebar:
-    st.header("⚙️ Settings & API Keys")
+    st.header("⚙️ Settings")
     
-    api_key = st.text_input("Gemini API Key (Required)", type="password")
-    st.markdown("[Get your free Gemini Key here](https://aistudio.google.com/app/apikey)")
+    # 2. FARMER-FRIENDLY UI (Optional override)
+    user_key_input = st.text_input(
+        "Custom API Key (Admin Only)", 
+        type="password", 
+        help="Leave blank to use default server access."
+    )
+    
+    api_key = user_key_input.strip() if user_key_input.strip() else DEFAULT_API_KEY
+
+    if api_key:
+        st.caption("🟢 **Status:** System Ready (API Connected)")
+    else:
+        st.caption("🔴 **Status:** No API Key configured on server.")
     
     st.markdown("---")
     st.subheader("🌐 Translation Settings")
@@ -219,7 +255,7 @@ with tab1:
             
             if st.button("🔍 Run Leaf Diagnostics", key="btn_leaf"):
                 if not api_key:
-                    st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+                    st.error("⚠️ System Error: No API Key connected to the server.")
                 else:
                     with st.spinner("Analyzing leaf structural data..."):
                         report = analyze_crop_image_with_gemini(leaf_img, "leaf", target_language, api_key)
@@ -240,7 +276,7 @@ with tab1:
             
             if st.button("🔍 Run Fruit Diagnostics", key="btn_fruit"):
                 if not api_key:
-                    st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+                    st.error("⚠️ System Error: No API Key connected to the server.")
                 else:
                     with st.spinner("Analyzing fruit surface metrics..."):
                         report = analyze_crop_image_with_gemini(fruit_img, "fruit", target_language, api_key)
@@ -261,7 +297,7 @@ with tab1:
             
             if st.button("🔍 Run Vegetable Diagnostics", key="btn_veg"):
                 if not api_key:
-                    st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+                    st.error("⚠️ System Error: No API Key connected to the server.")
                 else:
                     with st.spinner("Analyzing vegetable tissue composition..."):
                         report = analyze_crop_image_with_gemini(veg_img, "vegetable", target_language, api_key)
@@ -308,7 +344,6 @@ with tab2:
             metric_col1.metric("Est. Yield Per Hectare", f"{base_yield_per_ha:.2f} Quintals/ha")
             metric_col2.metric(f"Total Yield for {area_in} Hectares", f"{total_est_yield:.2f} Quintals")
             
-            # Save the metric in session state so it can be passed to the Gemini report in Step 2
             st.session_state.current_yield_prediction = f"{base_yield_per_ha:.2f} Quintals/ha"
 
     # --- STEP 2: MULTI-MODAL VISUAL UPLOADS ---
@@ -326,7 +361,7 @@ with tab2:
 
         if st.button("🚀 Generate AI Agronomy Report"):
             if not api_key:
-                st.error("⚠️ Please enter your Gemini API Key in the sidebar.")
+                st.error("⚠️ System Error: No API Key connected to the server.")
             elif not soil_upload and not crop_upload:
                 st.error("⚠️ Please upload AT LEAST ONE image to proceed.")
             else:
@@ -338,7 +373,6 @@ with tab2:
                 with st.spinner("Strictly validating visual data streams..."):
                     if soil_upload:
                         soil_img_pil = Image.open(soil_upload).convert('RGB')
-                        # Strict validation for Soil
                         soil_val = validate_specific_image(
                             soil_img_pil, 
                             "ONLY bare soil, dirt, or earth on the ground. NO plants, NO people, NO unrelated objects.", 
@@ -348,7 +382,6 @@ with tab2:
                     
                     if crop_upload:
                         crop_img_pil = Image.open(crop_upload).convert('RGB')
-                        # Strict validation for Early Crop
                         crop_val = validate_specific_image(
                             crop_img_pil, 
                             "ONLY early crop growth, small plants, crop germination, or emerging seedlings. NO mature plants, NO bare soil alone, NO unrelated objects.", 
@@ -356,7 +389,6 @@ with tab2:
                             api_key
                         )
                     
-                # Guardrail Error Checking
                 if "RATE_LIMIT_ERROR" in soil_val or "RATE_LIMIT_ERROR" in crop_val:
                     st.error("⚠️ **API Rate Limit Exceeded.** Please wait 30 seconds and click Generate again.")
                 elif "INVALID_SOIL_IMAGE" in soil_val:
@@ -366,7 +398,6 @@ with tab2:
                 else:
                     st.success("✅ Visuals Verified. Processing Advanced Analysis...")
                     
-                    # Fetch the yield prediction from session state if it exists, otherwise provide a fallback
                     yield_val = st.session_state.get("current_yield_prediction", "Please run Step 1 calculation first.")
                     
                     with st.spinner(f"Generating dynamic localized Agronomy Report in {target_language}..."):
@@ -382,46 +413,86 @@ with tab2:
 
 
 # ==========================================
-# TAB 3: GENERATIVE AI CHAT
+# TAB 3: MULTIMODAL GENERATIVE AI CHAT
 # ==========================================
 
 with tab3:
     st.header("🤖 GenAI AgriShield Chat")
     st.write(f"Chat Mode Language: **{selected_language_label}**")
-    
+
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
+            if "attachment_name" in message and message["attachment_name"]:
+                st.caption(f"📎 *Attached File: {message['attachment_name']}*")
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask a farming question here..."):
+    # Streamlit Popover File Uploader
+    with st.popover("➕ Attach File", help="Upload a document or image to analyze"):
+        chat_file = st.file_uploader(
+            "Upload your file here", 
+            type=["jpg", "jpeg", "png", "pdf", "docx"], 
+            key="chat_file_attachment",
+            label_visibility="collapsed"
+        )
+        if chat_file is not None:
+            st.success(f"Attached: {chat_file.name}")
+
+    if prompt := st.chat_input("Ask a farming question or query attached files..."):
         if not api_key:
-            st.error("⚠️ Please enter your Gemini API Key in the sidebar on the left first!")
+            st.error("⚠️ System Error: No API Key connected to the server.")
         else:
+            file_name = chat_file.name if chat_file is not None else None
+            
             with st.chat_message("user"):
+                if file_name:
+                    st.caption(f"📎 *Attached File: {file_name}*")
                 st.markdown(prompt)
             
-            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.messages.append({
+                "role": "user", 
+                "content": prompt, 
+                "attachment_name": file_name
+            })
 
-            with st.spinner("Analyzing agricultural data..."):
+            with st.spinner("Analyzing agricultural query and attached contents..."):
                 try:
                     if genai is None:
                         raise RuntimeError("Google GenAI package is not available in this environment.")
 
                     client = genai.Client(api_key=api_key)
                     
+                    contents_payload = []
+                    
+                    if chat_file is not None:
+                        file_bytes = chat_file.getvalue()
+                        ext = chat_file.name.split('.')[-1].lower()
+                        
+                        if ext in ["jpg", "jpeg", "png"]:
+                            img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
+                            contents_payload.append(img)
+                        elif ext == "pdf":
+                            pdf_part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
+                            contents_payload.append(pdf_part)
+                        elif ext == "docx":
+                            extracted_text = extract_docx_text(file_bytes)
+                            contents_payload.append(f"\n\n--- ATTACHED DOCX FILE ({chat_file.name}) CONTENT ---\n{extracted_text}\n--- END ATTACHMENT ---\n")
+
                     system_prompt = f"""
                     You are an expert agronomist. Answer this query professionally.
+                    If any image or document is attached, analyze its contents thoroughly to answer the user query.
                     CRITICAL: You must answer the user query ENTIRELY in the following language: {target_language}.
                     
                     User Query: {prompt}
                     """
                     
+                    contents_payload.append(system_prompt)
+                    
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
-                        contents=system_prompt,
+                        contents=contents_payload,
                     )
                     ai_answer = response.text
 
@@ -435,6 +506,7 @@ with tab3:
                     else:
                         st.error(f"Error connecting to AI Server: {e}")
                     
+
 # ==========================================
 # TAB 4: ANALYTICS
 # ==========================================
