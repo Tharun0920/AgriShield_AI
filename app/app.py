@@ -159,15 +159,15 @@ def get_translated_ui(target_lang, api_key):
         return ENGLISH_UI
         
     prompt = f"""
-    Translate the VALUES of this JSON dictionary into the language: {target_lang}.
+    Translate the VALUES of this JSON dictionary into {target_lang}.
     CRITICAL RULES:
     1. Keep the exact same JSON keys (DO NOT translate the keys).
     2. Keep all emojis intact.
-    3. MANDATORY: Translate the text strictly into the TRUE NATIVE SCRIPT of {target_lang} (e.g., if Tamil, use Tamil script like 'தமிழ்'; if Malayalam, use Malayalam script like 'മലയാളം'; if Hindi, use Devanagari script). DO NOT use Romanized English letters or transliteration.
-    4. Ensure the translation is natural and accurate for an agricultural dashboard.
+    3. Ensure the translation is natural and accurate for an agricultural dashboard.
+    4. Return ONLY valid raw JSON without any markdown code blocks or additional conversational text.
     
     JSON to translate:
-    {json.dumps(ENGLISH_UI)}
+    {json.dumps(ENGLISH_UI, ensure_ascii=False)}
     """
     try:
         client = genai.Client(api_key=api_key)
@@ -176,7 +176,17 @@ def get_translated_ui(target_lang, api_key):
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        translated_dict = json.loads(response.text.strip())
+        
+        raw_text = response.text.strip()
+        # Clean markdown code block formatting if present
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        if raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+            
+        translated_dict = json.loads(raw_text.strip())
         
         for key in ENGLISH_UI:
             if key not in translated_dict:
@@ -184,7 +194,7 @@ def get_translated_ui(target_lang, api_key):
                 
         return translated_dict
     except Exception as e:
-        print(f"Translation Error: {e}")
+        print(f"Translation Error for {target_lang}: {e}")
         return ENGLISH_UI
 
 # ==========================================
@@ -311,12 +321,10 @@ with st.sidebar:
     selected_dropdown_lang = st.selectbox("Language List", GLOBAL_LANGUAGES + ["Other (Type Below)"], index=0, label_visibility="collapsed")
     
     if selected_dropdown_lang == "Other (Type Below)":
-        raw_target = st.text_input(t("custom_lang"), value="").strip()
-        target_language = raw_target
-        selected_language_label = raw_target if raw_target else "English"
+        target_language = st.text_input(t("custom_lang"), value="").strip()
+        selected_language_label = target_language if target_language else "English"
     else:
-        # CLEANER: Strips out any parentheses or regional scripts (e.g., "Tamil (தமிழ்)" becomes "Tamil")
-        target_language = selected_dropdown_lang.split(" (")[0].strip()
+        target_language = selected_dropdown_lang
         selected_language_label = selected_dropdown_lang
 
 if target_language and target_language != st.session_state.ui_lang and api_key:
