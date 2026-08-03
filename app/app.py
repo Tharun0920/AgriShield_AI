@@ -547,8 +547,11 @@ with tab4:
     kpi3.metric(label="Avg Inference Latency", value="1.24s", delta="-0.32s optimized")
     
     last_pred = st.session_state.prediction_history[-1] if st.session_state.prediction_history else {"Accuracy": "N/A", "Module": "N/A", "Status": "N/A", "Timestamp": "N/A", "Target": "N/A"}
-    kpi4.metric(label="Last Uploaded Prediction", value=last_pred["Accuracy"], delta=f"Module: {last_pred['Module']}")
+    # Safely fetch the score, checking for both the new key and the old key to prevent crashes
+score = last_pred.get("Accuracy", last_pred.get("Accuracy / Confidence", "N/A"))
+module_name = last_pred.get("Module", "N/A")
 
+kpi4.metric(label="Last Uploaded Prediction", value=score, delta=f"Module: {module_name}")
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
     
