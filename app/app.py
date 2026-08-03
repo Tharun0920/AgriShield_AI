@@ -27,6 +27,11 @@ MODEL_DIR = BASE_DIR / "models"
 DISEASE_MODEL_PATH = MODEL_DIR / "plant_disease_model.keras"
 YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 
+# ==========================================
+# PERFORMANCE UPGRADE: Caching Machine Learning Models
+# ==========================================
+
+@st.cache_resource
 def load_vision_model():
     if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
         return None
@@ -35,6 +40,7 @@ def load_vision_model():
     except Exception:
         return None
 
+@st.cache_resource
 def load_yield_model():
     if YIELD_MODEL_PATH.exists():
         with YIELD_MODEL_PATH.open("rb") as f:
