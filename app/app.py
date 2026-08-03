@@ -6,6 +6,7 @@ from PIL import Image
 import os
 import numpy as np
 import io
+import json
 
 try:
     import google.genai as genai
@@ -51,7 +52,46 @@ def load_yield_model():
         return pickle.load(f)
 
 # ==========================================
-# GEMINI & API HELPER FUNCTIONS (WITH ERROR HANDLING)
+# FILE EXTRACTION HELPERS FOR TAB 3
+# ==========================================
+
+def extract_docx_text(file_bytes):
+    """Extracts text content from a DOCX file."""
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        full_text = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(full_text)
+    except ImportError:
+        try:
+            return file_bytes.decode('utf-8', errors='ignore')
+        except Exception:
+            return "[DOCX Content Extracted]"
+    except Exception as e:
+        return f"[Error parsing DOCX content: {e}]"
+
+def extract_pptx_text(file_bytes):
+    """Extracts text content from a PPT/PPTX presentation file."""
+    try:
+        import pptx
+        prs = pptx.Presentation(io.BytesIO(file_bytes))
+        text_runs = []
+        for slide_num, slide in enumerate(prs.slides, 1):
+            slide_text = []
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text.strip():
+                    slide_text.append(shape.text.strip())
+            if slide_text:
+                text_runs.append(f"--- Slide {slide_num} ---\n" + "\n".join(slide_text))
+        return "\n\n".join(text_runs)
+    except Exception:
+        try:
+            return file_bytes.decode('utf-8', errors='ignore')
+        except Exception:
+            return "[PowerPoint Content Extracted]"
+
+# ==========================================
+# GEMINI & API HELPER FUNCTIONS
 # ==========================================
 
 def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_key):
@@ -160,21 +200,6 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
             return "⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and click Generate again."
         return f"⚠️ Report Generation Error: {e}"
 
-def extract_docx_text(file_bytes):
-    """Extracts text content from a DOCX file."""
-    try:
-        import docx
-        doc = docx.Document(io.BytesIO(file_bytes))
-        full_text = [p.text for p in doc.paragraphs if p.text.strip()]
-        return "\n".join(full_text)
-    except ImportError:
-        try:
-            return file_bytes.decode('utf-8', errors='ignore')
-        except Exception:
-            return "[DOCX Content Extracted]"
-    except Exception as e:
-        return f"[Error parsing DOCX content: {e}]"
-
 
 # ==========================================
 # PAGE CONFIGURATION & SIDEBAR
@@ -189,8 +214,6 @@ INDIAN_LANGUAGES = {
     "Assamese (অসমীয়া)": "Assamese", "Sanskrit (संस्कृतम्)": "Sanskrit"
 }
 
-# 1. AUTOMATIC BACKEND API KEY RESOLUTION
-# This looks for the key in Streamlit Secrets or Environment Variables
 DEFAULT_API_KEY = ""
 try:
     DEFAULT_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
@@ -200,7 +223,6 @@ except Exception:
 with st.sidebar:
     st.header("⚙️ Settings")
     
-    # 2. FARMER-FRIENDLY UI (Optional override)
     user_key_input = st.text_input(
         "Custom API Key (Admin Only)", 
         type="password", 
@@ -429,18 +451,17 @@ with tab3:
                 st.caption(f"📎 *Attached File: {message['attachment_name']}*")
             st.markdown(message["content"])
 
-    # Streamlit Popover File Uploader
-    with st.popover("➕ Attach File", help="Upload a document or image to analyze"):
-        chat_file = st.file_uploader(
-            "Upload your file here", 
-            type=["jpg", "jpeg", "png", "pdf", "docx"], 
+    # Streamlit Popover File Uploader - Expanded file support
+    with st.popover("➕ Attach Agricultural File / Image", help="Upload an agricultural document, dataset, or photo to analyze"):
+        chat_file = st.file_uploader("Upload your file here", 
+            type=["jpg", "jpeg", "png", "csv", "txt", "docx", "pdf", "ppt", "pptx", "json"], 
             key="chat_file_attachment",
             label_visibility="collapsed"
         )
         if chat_file is not None:
             st.success(f"Attached: {chat_file.name}")
 
-    if prompt := st.chat_input("Ask a farming question or query attached files..."):
+    if prompt := st.chat_input("Ask a farming question or query attached agricultural files..."):
         if not api_key:
             st.error("⚠️ System Error: No API Key connected to the server.")
         else:
@@ -457,33 +478,74 @@ with tab3:
                 "attachment_name": file_name
             })
 
-            with st.spinner("Analyzing agricultural query and attached contents..."):
+            with st.spinner("Analyzing query and attached agricultural file..."):
                 try:
                     if genai is None:
                         raise RuntimeError("Google GenAI package is not available in this environment.")
 
                     client = genai.Client(api_key=api_key)
-                    
                     contents_payload = []
                     
                     if chat_file is not None:
                         file_bytes = chat_file.getvalue()
                         ext = chat_file.name.split('.')[-1].lower()
                         
+                        # 1. Image Files
                         if ext in ["jpg", "jpeg", "png"]:
                             img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
                             contents_payload.append(img)
+                            
+                        # 2. PDF Documents
                         elif ext == "pdf":
                             pdf_part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
                             contents_payload.append(pdf_part)
+                            
+                        # 3. CSV Datasets
+                        elif ext == "csv":
+                            try:
+                                df = pd.read_csv(io.BytesIO(file_bytes))
+                                csv_summary = f"\n\n--- ATTACHED CSV DATASET ({chat_file.name}) ---\nColumns: {list(df.columns)}\nShape: {df.shape}\nData Preview:\n{df.head(20).to_string()}\n--- END DATASET ---\n"
+                                contents_payload.append(csv_summary)
+                            except Exception:
+                                raw_csv = file_bytes.decode('utf-8', errors='ignore')
+                                contents_payload.append(f"\n\n--- ATTACHED CSV FILE ({chat_file.name}) ---\n{raw_csv[:5000]}\n--- END FILE ---\n")
+                                
+                        # 4. Text Files
+                        elif ext == "txt":
+                            raw_txt = file_bytes.decode('utf-8', errors='ignore')
+                            contents_payload.append(f"\n\n--- ATTACHED TXT FILE ({chat_file.name}) ---\n{raw_txt}\n--- END FILE ---\n")
+                            
+                        # 5. JSON Files
+                        elif ext == "json":
+                            try:
+                                json_data = json.loads(file_bytes.decode('utf-8', errors='ignore'))
+                                json_str = json.dumps(json_data, indent=2)
+                                contents_payload.append(f"\n\n--- ATTACHED JSON DATA ({chat_file.name}) ---\n{json_str[:5000]}\n--- END JSON ---\n")
+                            except Exception:
+                                raw_json = file_bytes.decode('utf-8', errors='ignore')
+                                contents_payload.append(f"\n\n--- ATTACHED JSON FILE ({chat_file.name}) ---\n{raw_json[:5000]}\n--- END FILE ---\n")
+                                
+                        # 6. Word Documents
                         elif ext == "docx":
-                            extracted_text = extract_docx_text(file_bytes)
-                            contents_payload.append(f"\n\n--- ATTACHED DOCX FILE ({chat_file.name}) CONTENT ---\n{extracted_text}\n--- END ATTACHMENT ---\n")
+                            extracted_docx = extract_docx_text(file_bytes)
+                            contents_payload.append(f"\n\n--- ATTACHED DOCX FILE ({chat_file.name}) ---\n{extracted_docx}\n--- END FILE ---\n")
+                            
+                        # 7. PowerPoint Presentations
+                        elif ext in ["ppt", "pptx"]:
+                            extracted_ppt = extract_pptx_text(file_bytes)
+                            contents_payload.append(f"\n\n--- ATTACHED PRESENTATION ({chat_file.name}) ---\n{extracted_ppt}\n--- END FILE ---\n")
 
                     system_prompt = f"""
-                    You are an expert agronomist. Answer this query professionally.
-                    If any image or document is attached, analyze its contents thoroughly to answer the user query.
-                    CRITICAL: You must answer the user query ENTIRELY in the following language: {target_language}.
+                    You are AgriShield AI, an expert agricultural scientist and agronomist.
+
+                    AGRICULTURAL RELEVANCE & VALIDATION GUARDRAIL:
+                    1. If a file or image is attached, inspect its contents carefully.
+                    2. IF the attached file/image OR query is completely unrelated to agriculture, farming, crops, soil, plant pathology, fertilizers, livestock, weather, agricultural datasets, or rural economics, respond EXACTLY with:
+                       "❌ **Invalid File Notice:** The attached file or query does not appear to be related to agriculture. Please upload an agricultural document, dataset, presentation, or crop photo."
+                    3. IF the file IS related to agriculture, provide a detailed, accurate agronomic analysis answering the user query.
+                    
+                    CRITICAL TRANSLATION RULE:
+                    You MUST answer the user query ENTIRELY in the following language: {target_language}.
                     
                     User Query: {prompt}
                     """
@@ -505,7 +567,7 @@ with tab3:
                         st.error("⚠️ **API Rate Limit Exceeded (Free Tier).** Please wait 30 seconds and ask your question again.")
                     else:
                         st.error(f"Error connecting to AI Server: {e}")
-                    
+
 
 # ==========================================
 # TAB 4: ANALYTICS
