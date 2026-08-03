@@ -159,11 +159,12 @@ def get_translated_ui(target_lang, api_key):
         return ENGLISH_UI
         
     prompt = f"""
-    Translate the VALUES of this JSON dictionary into {target_lang}.
+    Translate the VALUES of this JSON dictionary into the language: {target_lang}.
     CRITICAL RULES:
     1. Keep the exact same JSON keys (DO NOT translate the keys).
     2. Keep all emojis intact.
-    3. Ensure the translation is natural and accurate for an agricultural dashboard.
+    3. MANDATORY: Translate the text strictly into the TRUE NATIVE SCRIPT of {target_lang} (e.g., if Tamil, use Tamil script like 'தமிழ்'; if Malayalam, use Malayalam script like 'മലയാളം'; if Hindi, use Devanagari script). DO NOT use Romanized English letters or transliteration.
+    4. Ensure the translation is natural and accurate for an agricultural dashboard.
     
     JSON to translate:
     {json.dumps(ENGLISH_UI)}
