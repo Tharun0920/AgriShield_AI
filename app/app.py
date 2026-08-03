@@ -99,6 +99,8 @@ def extract_pptx_text(file_bytes):
 ENGLISH_UI = {
     "app_title": "🌾 AgriShield AI: Smart Farming Assistant",
     "welcome": "Welcome to your intelligent agricultural advisor dashboard.",
+    "choose_lang_text": "Choose any language at the left side top side",
+    "current_lang_label": "Current Language:",
     "tab1_name": "📸 Crop Disease Diagnostics",
     "tab2_name": "📊 Advanced Yield & Soil Forecast",
     "tab3_name": "🤖 AI AgriShield Chat",
@@ -106,9 +108,8 @@ ENGLISH_UI = {
     "sidebar_settings": "⚙️ Settings",
     "custom_key": "Custom API Key (Admin Only)",
     "trans_settings": "🌐 Global Translation Settings",
-    "select_lang": "Choose a preferred language:",
+    "select_lang": "Select your language or type a custom one below:",
     "custom_lang": "Enter your custom language:",
-    "current_lang_label": "Current Language",
     "tab1_header": "📸 Multimodal Crop Health & Pathology Center",
     "tab1_desc": "Select the specific category tab below to upload an image and launch an advanced visual health audit.",
     "leaf_tab": "🍃 Leaf Diagnostics",
@@ -149,7 +150,7 @@ ENGLISH_UI = {
     "analyzing": "Analyzing data...",
     "success": "✅ Analysis Complete!",
     "error_key": "⚠️ System Error: No API Key connected to the server.",
-    "error_lang": "⚠️ Please specify a target language."
+    "error_lang": "⚠️ Please specify a target language in the sidebar."
 }
 
 @st.cache_data(show_spinner=False)
@@ -293,6 +294,7 @@ DEFAULT_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 with st.sidebar:
     st.header(t("sidebar_settings"))
+    
     user_key_input = st.text_input(t("custom_key"), type="password")
     api_key = user_key_input.strip() if user_key_input.strip() else DEFAULT_API_KEY
 
@@ -300,19 +302,12 @@ with st.sidebar:
         st.caption("🟢 System Ready")
     else:
         st.caption("🔴 No API Key")
-
-# --- MAIN PAGE HEADER ---
-st.title(t("app_title"))
-st.markdown(t("welcome"))
-
-# --- LANGUAGE SELECTOR PLACED BELOW WELCOME BANNER ---
-col_lang1, col_lang2 = st.columns([1, 2])
-with col_lang1:
-    selected_dropdown_lang = st.selectbox(
-        t("select_lang"), 
-        GLOBAL_LANGUAGES + ["Other (Type Below)"], 
-        index=GLOBAL_LANGUAGES.index(st.session_state.ui_lang) if st.session_state.ui_lang in GLOBAL_LANGUAGES else 0
-    )
+    
+    st.markdown("---")
+    st.subheader(t("trans_settings"))
+    st.write(t("select_lang"))
+    
+    selected_dropdown_lang = st.selectbox("Language List", GLOBAL_LANGUAGES + ["Other (Type Below)"], index=0, label_visibility="collapsed")
     
     if selected_dropdown_lang == "Other (Type Below)":
         target_language = st.text_input(t("custom_lang"), value="").strip()
@@ -321,10 +316,6 @@ with col_lang1:
         target_language = selected_dropdown_lang
         selected_language_label = selected_dropdown_lang
 
-with col_lang2:
-    st.markdown(f"<br><b>🌐 {t('current_lang_label')}:</b> <span style='color: #2e7b32; font-size: 1.1em;'>{selected_language_label}</span>", unsafe_allow_html=True)
-
-# --- TRIGGER WHOLE APP UI TRANSLATION IF LANGUAGE CHANGES ---
 if target_language and target_language != st.session_state.ui_lang and api_key:
     with st.spinner(f"Translating entire application UI to {target_language}..."):
         st.session_state.translated_ui = get_translated_ui(target_language, api_key)
@@ -334,7 +325,10 @@ if target_language and target_language != st.session_state.ui_lang and api_key:
         else:
             st.experimental_rerun()
 
-st.markdown("---")
+st.title(t("app_title"))
+st.markdown(t("welcome"))
+st.markdown(f"*{t('choose_lang_text')}*")
+st.markdown(f"**{t('current_lang_label')}** {selected_language_label}")
 
 tab1, tab2, tab3, tab4 = st.tabs([t("tab1_name"), t("tab2_name"), t("tab3_name"), t("tab4_name")])
 
