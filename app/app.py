@@ -99,7 +99,7 @@ def extract_pptx_text(file_bytes):
 ENGLISH_UI = {
     "app_title": "🌾 AgriShield AI: Smart Farming Assistant",
     "welcome": "Welcome to your intelligent agricultural advisor dashboard.",
-    "choose_lang_text": "Choose an language at the top left side slider",
+    "choose_lang_text": "Choose any language at the left side top side",
     "current_lang_label": "Current Language:",
     "tab1_name": "📸 Crop Disease Diagnostics",
     "tab2_name": "📊 Advanced Yield & Soil Forecast",
@@ -310,10 +310,12 @@ with st.sidebar:
     selected_dropdown_lang = st.selectbox("Language List", GLOBAL_LANGUAGES + ["Other (Type Below)"], index=0, label_visibility="collapsed")
     
     if selected_dropdown_lang == "Other (Type Below)":
-        target_language = st.text_input(t("custom_lang"), value="").strip()
-        selected_language_label = target_language if target_language else "English"
+        raw_target = st.text_input(t("custom_lang"), value="").strip()
+        target_language = raw_target
+        selected_language_label = raw_target if raw_target else "English"
     else:
-        target_language = selected_dropdown_lang
+        # CLEANER: Strips out any parentheses or regional scripts (e.g., "Tamil (தமிழ்)" becomes "Tamil")
+        target_language = selected_dropdown_lang.split(" (")[0].strip()
         selected_language_label = selected_dropdown_lang
 
 if target_language and target_language != st.session_state.ui_lang and api_key:
