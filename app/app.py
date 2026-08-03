@@ -154,10 +154,11 @@ ENGLISH_UI = {
     "error_lang": "⚠️ Please specify a target language in the sidebar."
 }
 
+@st.cache_data(show_spinner=False)
 def get_translated_ui(target_lang, api_key):
     if target_lang == "English" or not api_key:
         return ENGLISH_UI
-        
+            
     prompt = f"""
     Translate the VALUES of this JSON dictionary into {target_lang}.
     CRITICAL RULES:
