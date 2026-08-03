@@ -106,8 +106,9 @@ ENGLISH_UI = {
     "sidebar_settings": "⚙️ Settings",
     "custom_key": "Custom API Key (Admin Only)",
     "trans_settings": "🌐 Global Translation Settings",
-    "select_lang": "Select your language or type a custom one below:",
+    "select_lang": "Choose a preferred language:",
     "custom_lang": "Enter your custom language:",
+    "current_lang_label": "Current Language",
     "tab1_header": "📸 Multimodal Crop Health & Pathology Center",
     "tab1_desc": "Select the specific category tab below to upload an image and launch an advanced visual health audit.",
     "leaf_tab": "🍃 Leaf Diagnostics",
@@ -148,10 +149,9 @@ ENGLISH_UI = {
     "analyzing": "Analyzing data...",
     "success": "✅ Analysis Complete!",
     "error_key": "⚠️ System Error: No API Key connected to the server.",
-    "error_lang": "⚠️ Please specify a target language in the sidebar."
+    "error_lang": "⚠️ Please specify a target language."
 }
 
-# Added caching so the translation is instant for previously selected languages
 @st.cache_data(show_spinner=False)
 def get_translated_ui(target_lang, api_key):
     if target_lang == "English" or not api_key:
@@ -176,7 +176,6 @@ def get_translated_ui(target_lang, api_key):
         )
         translated_dict = json.loads(response.text.strip())
         
-        # Fallback to English for any missing keys
         for key in ENGLISH_UI:
             if key not in translated_dict:
                 translated_dict[key] = ENGLISH_UI[key]
@@ -271,7 +270,6 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
 # ==========================================
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
-# Initialize Session States safely to prevent Key/Attribute Errors
 if "ui_lang" not in st.session_state:
     st.session_state.ui_lang = "English"
 
@@ -285,7 +283,6 @@ if "prediction_history" not in st.session_state:
     ]
 
 def t(key):
-    """Helper function to fetch translated UI string."""
     return st.session_state.translated_ui.get(key, ENGLISH_UI.get(key, key))
 
 GLOBAL_LANGUAGES = [
@@ -296,7 +293,6 @@ DEFAULT_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 with st.sidebar:
     st.header(t("sidebar_settings"))
-    
     user_key_input = st.text_input(t("custom_key"), type="password")
     api_key = user_key_input.strip() if user_key_input.strip() else DEFAULT_API_KEY
 
@@ -304,12 +300,19 @@ with st.sidebar:
         st.caption("🟢 System Ready")
     else:
         st.caption("🔴 No API Key")
-    
-    st.markdown("---")
-    st.subheader(t("trans_settings"))
-    st.write(t("select_lang"))
-    
-    selected_dropdown_lang = st.selectbox("Language List", GLOBAL_LANGUAGES + ["Other (Type Below)"], index=0, label_visibility="collapsed")
+
+# --- MAIN PAGE HEADER ---
+st.title(t("app_title"))
+st.markdown(t("welcome"))
+
+# --- LANGUAGE SELECTOR PLACED BELOW WELCOME BANNER ---
+col_lang1, col_lang2 = st.columns([1, 2])
+with col_lang1:
+    selected_dropdown_lang = st.selectbox(
+        t("select_lang"), 
+        GLOBAL_LANGUAGES + ["Other (Type Below)"], 
+        index=GLOBAL_LANGUAGES.index(st.session_state.ui_lang) if st.session_state.ui_lang in GLOBAL_LANGUAGES else 0
+    )
     
     if selected_dropdown_lang == "Other (Type Below)":
         target_language = st.text_input(t("custom_lang"), value="").strip()
@@ -317,6 +320,9 @@ with st.sidebar:
     else:
         target_language = selected_dropdown_lang
         selected_language_label = selected_dropdown_lang
+
+with col_lang2:
+    st.markdown(f"<br><b>🌐 {t('current_lang_label')}:</b> <span style='color: #2e7b32; font-size: 1.1em;'>{selected_language_label}</span>", unsafe_allow_html=True)
 
 # --- TRIGGER WHOLE APP UI TRANSLATION IF LANGUAGE CHANGES ---
 if target_language and target_language != st.session_state.ui_lang and api_key:
@@ -328,8 +334,7 @@ if target_language and target_language != st.session_state.ui_lang and api_key:
         else:
             st.experimental_rerun()
 
-st.title(t("app_title"))
-st.markdown(t("welcome"))
+st.markdown("---")
 
 tab1, tab2, tab3, tab4 = st.tabs([t("tab1_name"), t("tab2_name"), t("tab3_name"), t("tab4_name")])
 
@@ -550,7 +555,6 @@ with tab4:
     
     last_pred = st.session_state.prediction_history[-1] if st.session_state.prediction_history else {"Accuracy": "N/A", "Module": "N/A", "Status": "N/A", "Timestamp": "N/A", "Target": "N/A"}
     
-    # Safe fetch for error prevention
     score = last_pred.get("Accuracy", last_pred.get("Accuracy / Confidence", "N/A"))
     module_name = last_pred.get("Module", "N/A")
     kpi4.metric(label="Last Uploaded Prediction Score", value=score, delta=f"Module: {module_name}")
