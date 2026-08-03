@@ -267,10 +267,10 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
 # ==========================================
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
-# Initialize Session States
+# Initialize Session States safely
 if "ui_lang" not in st.session_state:
     st.session_state.ui_lang = "English"
-    
+
 if "translated_ui" not in st.session_state:
     st.session_state.translated_ui = ENGLISH_UI
 
@@ -547,10 +547,9 @@ with tab4:
     
     last_pred = st.session_state.prediction_history[-1] if st.session_state.prediction_history else {"Accuracy": "N/A", "Module": "N/A", "Status": "N/A", "Timestamp": "N/A", "Target": "N/A"}
     
-    # Safely fetch the score, checking for both the new key and the old key to prevent crashes
     score = last_pred.get("Accuracy", last_pred.get("Accuracy / Confidence", "N/A"))
     module_name = last_pred.get("Module", "N/A")
-    kpi4.metric(label="Last Uploaded Prediction", value=score, delta=f"Module: {module_name}")
+    kpi4.metric(label="Last Uploaded Prediction Score", value=score, delta=f"Module: {module_name}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
