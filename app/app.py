@@ -127,7 +127,7 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
     """
     try:
         client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=[image_data, prompt])
+        response = client.models.generate_content(model="gemini-3.6-flash", contents=[image_data, prompt])
         return response.text
     except Exception as e:
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
