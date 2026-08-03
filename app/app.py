@@ -30,7 +30,6 @@ YIELD_MODEL_PATH = MODEL_DIR / "yield_model.pkl"
 # ==========================================
 # PERFORMANCE UPGRADE: Caching Machine Learning Models
 # ==========================================
-
 @st.cache_resource
 def load_vision_model():
     if not TF_AVAILABLE or not DISEASE_MODEL_PATH.exists():
@@ -61,7 +60,6 @@ def load_yield_model():
 # ==========================================
 # FILE EXTRACTION HELPERS FOR TAB 3
 # ==========================================
-
 def extract_docx_text(file_bytes):
     try:
         import docx
@@ -98,7 +96,6 @@ def extract_pptx_text(file_bytes):
 # ==========================================
 # DYNAMIC UI BATCH TRANSLATION ENGINE
 # ==========================================
-
 ENGLISH_UI = {
     "app_title": "🌾 AgriShield AI: Smart Farming Assistant",
     "welcome": "Welcome to your intelligent agricultural advisor dashboard.",
@@ -154,11 +151,12 @@ ENGLISH_UI = {
     "error_lang": "⚠️ Please specify a target language in the sidebar."
 }
 
+# Added caching so the translation is instant for previously selected languages
 @st.cache_data(show_spinner=False)
 def get_translated_ui(target_lang, api_key):
     if target_lang == "English" or not api_key:
         return ENGLISH_UI
-            
+        
     prompt = f"""
     Translate the VALUES of this JSON dictionary into {target_lang}.
     CRITICAL RULES:
@@ -191,7 +189,6 @@ def get_translated_ui(target_lang, api_key):
 # ==========================================
 # GEMINI & API HELPER FUNCTIONS
 # ==========================================
-
 def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_key):
     if not user_api_key: return "⚠️ System Error: No API Key."
     prompt = f"""
@@ -274,7 +271,7 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
 # ==========================================
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
-# Initialize Session States safely
+# Initialize Session States safely to prevent Key/Attribute Errors
 if "ui_lang" not in st.session_state:
     st.session_state.ui_lang = "English"
 
@@ -536,7 +533,6 @@ with tab3:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-
 # ==========================================
 # TAB 4: ADVANCED PERFORMANCE & AUDIT ANALYTICS
 # ==========================================
@@ -554,6 +550,7 @@ with tab4:
     
     last_pred = st.session_state.prediction_history[-1] if st.session_state.prediction_history else {"Accuracy": "N/A", "Module": "N/A", "Status": "N/A", "Timestamp": "N/A", "Target": "N/A"}
     
+    # Safe fetch for error prevention
     score = last_pred.get("Accuracy", last_pred.get("Accuracy / Confidence", "N/A"))
     module_name = last_pred.get("Module", "N/A")
     kpi4.metric(label="Last Uploaded Prediction Score", value=score, delta=f"Module: {module_name}")
