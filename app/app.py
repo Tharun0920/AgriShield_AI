@@ -296,7 +296,7 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction into performance audit tracking
+                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -305,6 +305,7 @@ with tab1:
                                 "Status": "Diagnostic Generated",
                                 "Accuracy / Confidence": "96.4%"
                             })
+                            st.session_state.prediction_history = st.session_state.prediction_history[-5:]
 
     with sub_tab_fruit:
         st.subheader("Fruit Pathology & Infection Analysis")
@@ -327,7 +328,7 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction into performance audit tracking
+                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -336,6 +337,7 @@ with tab1:
                                 "Status": "Diagnostic Generated",
                                 "Accuracy / Confidence": "97.8%"
                             })
+                            st.session_state.prediction_history = st.session_state.prediction_history[-5:]
 
     with sub_tab_veg:
         st.subheader("Vegetable Tissue Health Analysis")
@@ -358,7 +360,7 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction into performance audit tracking
+                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -367,6 +369,7 @@ with tab1:
                                 "Status": "Diagnostic Generated",
                                 "Accuracy / Confidence": "95.9%"
                             })
+                            st.session_state.prediction_history = st.session_state.prediction_history[-5:]
 
 # ==========================================
 # TAB 2: ADVANCED YIELD & SOIL FORECAST
@@ -407,7 +410,7 @@ with tab2:
             
             st.session_state.current_yield_prediction = f"{base_yield_per_ha:.2f} Quintals/ha"
             
-            # Log prediction into performance audit tracking
+            # Log prediction and strictly keep the last 5 entries
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.prediction_history.append({
                 "Timestamp": now_str,
@@ -416,6 +419,7 @@ with tab2:
                 "Status": f"{base_yield_per_ha:.2f} Quintals/ha",
                 "Accuracy / Confidence": "92.4%"
             })
+            st.session_state.prediction_history = st.session_state.prediction_history[-5:]
 
     # --- STEP 2: MULTI-MODAL VISUAL UPLOADS ---
     with st.expander("📸 Step 2: AI Visual Agronomy Report (Optional)", expanded=True):
@@ -482,7 +486,7 @@ with tab2:
                         st.markdown(f"### 📋 AI Multi-Modal Yield & Soil Analysis ({selected_language_label})")
                         st.info(final_report)
                         
-                        # Log prediction into performance audit tracking
+                        # Log prediction and strictly keep the last 5 entries
                         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         st.session_state.prediction_history.append({
                             "Timestamp": now_str,
@@ -491,6 +495,7 @@ with tab2:
                             "Status": "Agronomy Report Generated",
                             "Accuracy / Confidence": "95.1%"
                         })
+                        st.session_state.prediction_history = st.session_state.prediction_history[-5:]
 
 
 # ==========================================
@@ -671,14 +676,14 @@ with tab4:
     # SECTION 2: PAST LAST UPLOADED PREDICTION ACCURACY & AUDIT LOG
     # -------------------------------------------------------------
     st.subheader("📋 Past & Recent Uploaded Prediction Accuracy Logs")
-    st.write("Real-time diagnostic ledger logging the accuracy, confidence scores, and operational parameters of recent user uploads.")
+    st.write("Real-time diagnostic ledger displaying up to the 5 most recent predictions, ensuring immediate oversight without clutter.")
 
     history_df = pd.DataFrame(st.session_state.prediction_history)
     
     # Display recent prediction audit card
     st.info(f"📍 **Last Uploaded Prediction Audit:** Timestamp: `{last_pred['Timestamp']}` | Module: **{last_pred['Module']}** | Target: **{last_pred['Target']}** | Status: `{last_pred['Status']}` | **Confidence/Accuracy: {last_pred['Accuracy / Confidence']}**")
     
-    # Table displaying full audit history
+    # Table displaying full audit history (strictly sliced to max 5 in backend)
     st.dataframe(history_df, use_container_width=True)
 
     st.markdown("---")
@@ -727,3 +732,17 @@ with tab4:
         feature_data = dict(zip(features, importances))
         st.bar_chart(feature_data)
         st.caption("This chart displays how heavily the Random Forest model weights each input factor when making a prediction.")
+
+# ==========================================
+# GLOBAL FOOTER / STAMPMARK
+# ==========================================
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; padding: 10px;'>
+        <h5 style='color: #2e7b32;'>🛡️ CERTIFIED AI SYSTEM</h5>
+        <p style='color: #555555; font-style: italic;'>Designed, Engineered & Developed by <strong>N THARUN</strong></p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
