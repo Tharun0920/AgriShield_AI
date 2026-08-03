@@ -99,7 +99,7 @@ def extract_pptx_text(file_bytes):
 ENGLISH_UI = {
     "app_title": "🌾 AgriShield AI: Smart Farming Assistant",
     "welcome": "Welcome to your intelligent agricultural advisor dashboard.",
-    "choose_lang_text": "Choose any language at the left side top side",
+    "choose_lang_text": "Choose an language at the top left side slider",
     "current_lang_label": "Current Language:",
     "tab1_name": "📸 Crop Disease Diagnostics",
     "tab2_name": "📊 Advanced Yield & Soil Forecast",
