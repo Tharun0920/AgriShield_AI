@@ -268,10 +268,13 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
 st.set_page_config(page_title="AgriShield AI Dashboard", page_icon="🌾", layout="wide")
 
 # Initialize Session States
+# Initialize Session States
 if "ui_lang" not in st.session_state:
     st.session_state.ui_lang = "English"
+    
+if "translated_ui" not in st.session_state:
     st.session_state.translated_ui = ENGLISH_UI
-
+    
 if "prediction_history" not in st.session_state:
     st.session_state.prediction_history = [
         {"Timestamp": "Baseline Audit", "Module": "Leaf Diagnostics", "Target": "Tomato Leaf", "Status": "Early Blight Detected", "Accuracy": "96.5%"},
