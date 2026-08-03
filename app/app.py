@@ -215,13 +215,24 @@ if "prediction_history" not in st.session_state:
         {"Timestamp": "Baseline Audit", "Module": "Yield Predictor", "Target": "Tabular + Soil", "Status": "42.5 Quintals/ha", "Accuracy / Confidence": "91.8%"},
     ]
 
-INDIAN_LANGUAGES = {
-    "English": "English", "Hindi (हिन्दी)": "Hindi", "Telugu (తెలుగు)": "Telugu",
-    "Tamil (தமிழ்)": "Tamil", "Kannada (ಕನ್ನಡ)": "Kannada", "Malayalam (മലയാളം)": "Malayalam",
-    "Marathi (मराठी)": "Marathi", "Bengali (বাংলা)": "Bengali", "Gujarati (ગુજરાતી)": "Gujarati",
-    "Punjabi (ਪੰਜਾਬੀ)": "Punjabi", "Odia (ଓଡ଼ିଆ)": "Odia", "Urdu (اُردو)": "Urdu",
-    "Assamese (অসমীয়া)": "Assamese", "Sanskrit (संस्कृतम्)": "Sanskrit"
-}
+# Extensive Global Language List
+GLOBAL_LANGUAGES = [
+    "English", "Afrikaans", "Albanian", "Amharic", "Arabic", "Armenian", "Assamese",
+    "Azerbaijani", "Basque", "Belarusian", "Bengali", "Bosnian", "Bulgarian", "Burmese",
+    "Catalan", "Cebuano", "Chichewa", "Chinese (Mandarin)", "Chinese (Cantonese)", "Corsican",
+    "Croatian", "Czech", "Danish", "Dutch", "Esperanto", "Estonian", "Filipino", "Finnish",
+    "French", "Frisian", "Galician", "Georgian", "German", "Greek", "Gujarati", "Haitian Creole",
+    "Hausa", "Hawaiian", "Hebrew", "Hindi", "Hmong", "Hungarian", "Icelandic", "Igbo",
+    "Indonesian", "Irish", "Italian", "Japanese", "Javanese", "Kannada", "Kazakh", "Khmer",
+    "Kinyarwanda", "Korean", "Kurdish", "Kyrgyz", "Lao", "Latin", "Latvian", "Lithuanian", 
+    "Luxembourgish", "Macedonian", "Malagasy", "Malay", "Malayalam", "Maltese", "Maori", 
+    "Marathi", "Mongolian", "Nepali", "Norwegian", "Odia", "Pashto", "Persian", "Polish", 
+    "Portuguese", "Punjabi", "Romanian", "Russian", "Samoan", "Sanskrit", "Scots Gaelic", 
+    "Serbian", "Sesotho", "Shona", "Sindhi", "Sinhala", "Slovak", "Slovenian", "Somali", 
+    "Spanish", "Sundanese", "Swahili", "Swedish", "Tajik", "Tamil", "Tatar", "Telugu", 
+    "Thai", "Turkish", "Turkmen", "Ukrainian", "Urdu", "Uyghur", "Uzbek", "Vietnamese", 
+    "Welsh", "Xhosa", "Yiddish", "Yoruba", "Zulu"
+]
 
 DEFAULT_API_KEY = ""
 try:
@@ -246,9 +257,18 @@ with st.sidebar:
         st.caption("🔴 **Status:** No API Key configured on server.")
     
     st.markdown("---")
-    st.subheader("🌐 Translation Settings")
-    selected_language_label = st.selectbox("Preferred Language", list(INDIAN_LANGUAGES.keys()))
-    target_language = INDIAN_LANGUAGES[selected_language_label]
+    st.subheader("🌐 Global Translation Settings")
+    st.write("Select your language or type a custom one below:")
+    
+    # Allow user to pick from massive list OR type their own
+    selected_dropdown_lang = st.selectbox("Preferred Language", GLOBAL_LANGUAGES + ["Other (Type Below)"], index=0)
+    
+    if selected_dropdown_lang == "Other (Type Below)":
+        target_language = st.text_input("Enter your custom language:", value="").strip()
+        selected_language_label = target_language if target_language else "English"
+    else:
+        target_language = selected_dropdown_lang
+        selected_language_label = selected_dropdown_lang
 
 st.title("🌾 AgriShield AI: Smart Farming Assistant")
 st.markdown("Welcome to your intelligent agricultural advisor dashboard.")
@@ -287,6 +307,8 @@ with tab1:
             if st.button("🔍 Run Leaf Diagnostics", key="btn_leaf"):
                 if not api_key:
                     st.error("⚠️ System Error: No API Key connected to the server.")
+                elif not target_language:
+                    st.error("⚠️ Please specify a target language in the sidebar.")
                 else:
                     with st.spinner("Analyzing leaf structural data..."):
                         report = analyze_crop_image_with_gemini(leaf_img, "leaf", target_language, api_key)
@@ -296,7 +318,6 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -319,6 +340,8 @@ with tab1:
             if st.button("🔍 Run Fruit Diagnostics", key="btn_fruit"):
                 if not api_key:
                     st.error("⚠️ System Error: No API Key connected to the server.")
+                elif not target_language:
+                    st.error("⚠️ Please specify a target language in the sidebar.")
                 else:
                     with st.spinner("Analyzing fruit surface metrics..."):
                         report = analyze_crop_image_with_gemini(fruit_img, "fruit", target_language, api_key)
@@ -328,7 +351,6 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -351,6 +373,8 @@ with tab1:
             if st.button("🔍 Run Vegetable Diagnostics", key="btn_veg"):
                 if not api_key:
                     st.error("⚠️ System Error: No API Key connected to the server.")
+                elif not target_language:
+                    st.error("⚠️ Please specify a target language in the sidebar.")
                 else:
                     with st.spinner("Analyzing vegetable tissue composition..."):
                         report = analyze_crop_image_with_gemini(veg_img, "vegetable", target_language, api_key)
@@ -360,7 +384,6 @@ with tab1:
                             st.success("✅ Analysis Complete!")
                             st.markdown(report)
                             
-                            # Log prediction and strictly keep the last 5 entries
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             st.session_state.prediction_history.append({
                                 "Timestamp": now_str,
@@ -410,7 +433,6 @@ with tab2:
             
             st.session_state.current_yield_prediction = f"{base_yield_per_ha:.2f} Quintals/ha"
             
-            # Log prediction and strictly keep the last 5 entries
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.prediction_history.append({
                 "Timestamp": now_str,
@@ -437,6 +459,8 @@ with tab2:
         if st.button("🚀 Generate AI Agronomy Report"):
             if not api_key:
                 st.error("⚠️ System Error: No API Key connected to the server.")
+            elif not target_language:
+                st.error("⚠️ Please specify a target language in the sidebar.")
             elif not soil_upload and not crop_upload:
                 st.error("⚠️ Please upload AT LEAST ONE image to proceed.")
             else:
@@ -486,7 +510,6 @@ with tab2:
                         st.markdown(f"### 📋 AI Multi-Modal Yield & Soil Analysis ({selected_language_label})")
                         st.info(final_report)
                         
-                        # Log prediction and strictly keep the last 5 entries
                         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         st.session_state.prediction_history.append({
                             "Timestamp": now_str,
@@ -527,6 +550,8 @@ with tab3:
     if prompt := st.chat_input("Ask a farming question or query attached agricultural files..."):
         if not api_key:
             st.error("⚠️ System Error: No API Key connected to the server.")
+        elif not target_language:
+            st.error("⚠️ Please specify a target language in the sidebar.")
         else:
             file_name = chat_file.name if chat_file is not None else None
             
@@ -634,20 +659,17 @@ with tab4:
     # -------------------------------------------------------------
     st.subheader("🚀 Project Performance Level & System Overview")
     
-    # High Level System KPIs
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     
     kpi1.metric(label="System Performance Level", value="Optimal", delta="Grade A+ (Stable)")
     kpi2.metric(label="Overall Platform Accuracy", value="95.6%", delta="+1.8% vs V1.0")
     kpi3.metric(label="Avg Inference Latency", value="1.24s", delta="-0.32s optimized")
     
-    # Get last prediction score dynamically from session state
     last_pred = st.session_state.prediction_history[-1] if st.session_state.prediction_history else {"Accuracy / Confidence": "96.4%", "Timestamp": "N/A", "Module": "N/A"}
     kpi4.metric(label="Last Uploaded Prediction Score", value=last_pred["Accuracy / Confidence"], delta=f"Module: {last_pred['Module']}")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Performance Level Progress Gauge & Breakdown
     col_gauge, col_breakdown = st.columns([1, 1])
     
     with col_gauge:
@@ -680,10 +702,8 @@ with tab4:
 
     history_df = pd.DataFrame(st.session_state.prediction_history)
     
-    # Display recent prediction audit card
     st.info(f"📍 **Last Uploaded Prediction Audit:** Timestamp: `{last_pred['Timestamp']}` | Module: **{last_pred['Module']}** | Target: **{last_pred['Target']}** | Status: `{last_pred['Status']}` | **Confidence/Accuracy: {last_pred['Accuracy / Confidence']}**")
     
-    # Table displaying full audit history (strictly sliced to max 5 in backend)
     st.dataframe(history_df, use_container_width=True)
 
     st.markdown("---")
