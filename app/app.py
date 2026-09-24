@@ -7,6 +7,7 @@ import os
 import numpy as np
 import io
 import json
+import time
 from datetime import datetime
 
 try:
@@ -171,31 +172,46 @@ def get_translated_ui(target_lang, api_key):
     """
     try:
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-3.6-flash", 
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
-        )
         
-        raw_text = response.text.strip()
-        # Clean markdown code block formatting if present
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:]
-        if raw_text.startswith("```"):
-            raw_text = raw_text[3:]
-        if raw_text.endswith("```"):
-            raw_text = raw_text[:-3]
-            
-        translated_dict = json.loads(raw_text.strip())
-        
-        for key in ENGLISH_UI:
-            if key not in translated_dict:
-                translated_dict[key] = ENGLISH_UI[key]
+        # Automatic retry for temporary 503 errors
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash", 
+                    contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                )
                 
-        return translated_dict
+                raw_text = response.text.strip()
+                if raw_text.startswith("```json"):
+                    raw_text = raw_text[7:]
+                if raw_text.startswith("```"):
+                    raw_text = raw_text[3:]
+                if raw_text.endswith("```"):
+                    raw_text = raw_text[:-3]
+                    
+                translated_dict = json.loads(raw_text.strip())
+                
+                for key in ENGLISH_UI:
+                    if key not in translated_dict:
+                        translated_dict[key] = ENGLISH_UI[key]
+                        
+                return translated_dict
+                
+            except Exception as e:
+                error_str = str(e).upper()
+                if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
+                    if attempt < 2:
+                        time.sleep(2 ** attempt)
+                        continue
+                print(f"Translation Error for {target_lang}: {e}")
+                return ENGLISH_UI
+                
     except Exception as e:
         print(f"Translation Error for {target_lang}: {e}")
         return ENGLISH_UI
+        
+    return ENGLISH_UI
 
 # ==========================================
 # GEMINI & API HELPER FUNCTIONS
@@ -227,14 +243,20 @@ def analyze_crop_image_with_gemini(image_data, category, target_lang, user_api_k
     * [Medicine 1]
     * [Medicine 2]
     """
-    try:
-        client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-3.6-flash", contents=[image_data, prompt])
-        return response.text
-    except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            return "⚠️ **API Rate Limit Exceeded.** Please wait 30 seconds."
-        return f"⚠️ API Error: {e}"
+    
+    client = genai.Client(api_key=user_api_key)
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(model="gemini-1.5-flash", contents=[image_data, prompt])
+            return response.text
+        except Exception as e:
+            error_str = str(e).upper()
+            if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                return "⚠️ **Google Gemini API is currently overloaded.** Please wait a minute and try again."
+            return f"⚠️ API Error: {e}"
 
 def validate_specific_image(image_data, expected_content, error_code, user_api_key):
     prompt = f"""
@@ -244,7 +266,7 @@ def validate_specific_image(image_data, expected_content, error_code, user_api_k
     """
     try:
         client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-3.6-flash", contents=[image_data, prompt])
+        response = client.models.generate_content(model="gemini-1.5-flash", contents=[image_data, prompt])
         return response.text.strip()
     except Exception:
         return "API_ERROR"
@@ -272,7 +294,7 @@ def generate_advanced_yield_report(soil_img, crop_img, numeric_data, rf_predicti
     contents_list.append(prompt)
     try:
         client = genai.Client(api_key=user_api_key)
-        response = client.models.generate_content(model="gemini-3.6-flash", contents=contents_list)
+        response = client.models.generate_content(model="gemini-1.5-flash", contents=contents_list)
         return response.text
     except Exception as e:
         return f"⚠️ Report Error: {e}"
@@ -492,7 +514,6 @@ with tab3:
                 st.caption(f"📎 *Attached File: {message['attachment_name']}*")
             st.markdown(message["content"])
 
-    # Use an expander instead of popover for wider Streamlit compatibility
     with st.expander(t("chat_attach")):
         chat_file = st.file_uploader("File", type=["jpg", "jpeg", "png", "csv", "txt", "docx", "pdf", "ppt", "pptx", "json"], key="chat_file_attachment", label_visibility="collapsed")
         if chat_file is not None:
@@ -510,40 +531,48 @@ with tab3:
             st.session_state.messages.append({"role": "user", "content": prompt, "attachment_name": file_name})
 
             with st.spinner(t("analyzing")):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    contents_payload = []
+                client = genai.Client(api_key=api_key)
+                contents_payload = []
+                
+                if chat_file is not None:
+                    file_bytes = chat_file.getvalue()
+                    ext = chat_file.name.split('.')[-1].lower()
                     
-                    if chat_file is not None:
-                        file_bytes = chat_file.getvalue()
-                        ext = chat_file.name.split('.')[-1].lower()
+                    if ext in ["jpg", "jpeg", "png"]:
+                        img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
+                        contents_payload.append(img)
+                    elif ext == "pdf":
+                        contents_payload.append(types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"))
+                    elif ext == "csv":
+                        raw_csv = file_bytes.decode('utf-8', errors='ignore')
+                        contents_payload.append(f"\n\n--- ATTACHED CSV ---\n{raw_csv[:5000]}\n--- END ---\n")
+                    elif ext == "txt":
+                        raw_txt = file_bytes.decode('utf-8', errors='ignore')
+                        contents_payload.append(f"\n\n--- ATTACHED TXT ---\n{raw_txt}\n--- END ---\n")
+
+                system_prompt = f"""
+                You are AgriShield AI, an expert agricultural scientist.
+                CRITICAL TRANSLATION RULE: Answer the user query ENTIRELY in {target_language}.
+                User Query: {prompt}
+                """
+                contents_payload.append(system_prompt)
+                
+                for attempt in range(3):
+                    try:
+                        response = client.models.generate_content(model="gemini-1.5-flash", contents=contents_payload)
+                        ai_answer = response.text
+                        with st.chat_message("assistant"): st.markdown(ai_answer)
+                        st.session_state.messages.append({"role": "assistant", "content": ai_answer})
+                        break # Exit the retry loop on success
                         
-                        if ext in ["jpg", "jpeg", "png"]:
-                            img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
-                            contents_payload.append(img)
-                        elif ext == "pdf":
-                            contents_payload.append(types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"))
-                        elif ext == "csv":
-                            raw_csv = file_bytes.decode('utf-8', errors='ignore')
-                            contents_payload.append(f"\n\n--- ATTACHED CSV ---\n{raw_csv[:5000]}\n--- END ---\n")
-                        elif ext == "txt":
-                            raw_txt = file_bytes.decode('utf-8', errors='ignore')
-                            contents_payload.append(f"\n\n--- ATTACHED TXT ---\n{raw_txt}\n--- END ---\n")
-
-                    system_prompt = f"""
-                    You are AgriShield AI, an expert agricultural scientist.
-                    CRITICAL TRANSLATION RULE: Answer the user query ENTIRELY in {target_language}.
-                    User Query: {prompt}
-                    """
-                    contents_payload.append(system_prompt)
-                    
-                    response = client.models.generate_content(model="gemini-3.6-flash", contents=contents_payload)
-                    ai_answer = response.text
-
-                    with st.chat_message("assistant"): st.markdown(ai_answer)
-                    st.session_state.messages.append({"role": "assistant", "content": ai_answer})
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                    except Exception as e:
+                        error_str = str(e).upper()
+                        if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
+                            if attempt < 2:
+                                time.sleep(2 ** attempt)
+                                continue
+                        st.error(f"Error: {e}")
+                        break
 
 # ==========================================
 # TAB 4: ADVANCED PERFORMANCE & AUDIT ANALYTICS
@@ -572,11 +601,10 @@ with tab4:
     st.subheader(t("audit_logs"))
     history_df = pd.DataFrame(st.session_state.prediction_history)
     st.info(f"📍 **Last Uploaded Prediction Audit:** Timestamp: `{last_pred.get('Timestamp', 'N/A')}` | Module: **{module_name}** | Target: **{last_pred.get('Target', 'N/A')}` | Status: `{last_pred.get('Status', 'N/A')}`")
-    # Replace deprecated `use_container_width` with new `width` parameter
+    
     try:
         st.dataframe(history_df, width='stretch')
     except TypeError:
-        # Fallback for older Streamlit versions
         st.dataframe(history_df)
     st.markdown("---")
     
