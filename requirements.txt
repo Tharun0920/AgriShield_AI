@@ -1,8 +1,9 @@
-streamlit==1.59.2
-tensorflow==2.21.0
-scikit-learn==1.9.0
-pandas==2.3.3
-numpy==1.26.4
-pillow==10.4.0
-google-genai==2.12.1
-pytest==8.1.1
+streamlit
+pandas
+numpy
+Pillow
+tensorflow-cpu
+google-genai
+python-docx
+python-pptx
+scikit-learn
