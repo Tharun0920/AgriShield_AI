@@ -492,9 +492,11 @@ with tab3:
                 st.caption(f"📎 *Attached File: {message['attachment_name']}*")
             st.markdown(message["content"])
 
-    with st.popover(t("chat_attach")):
+    # Use an expander instead of popover for wider Streamlit compatibility
+    with st.expander(t("chat_attach")):
         chat_file = st.file_uploader("File", type=["jpg", "jpeg", "png", "csv", "txt", "docx", "pdf", "ppt", "pptx", "json"], key="chat_file_attachment", label_visibility="collapsed")
-        if chat_file is not None: st.success(f"Attached: {chat_file.name}")
+        if chat_file is not None:
+            st.success(f"Attached: {chat_file.name}")
 
     if prompt := st.chat_input(t("chat_input")):
         if not api_key: st.error(t("error_key"))
@@ -569,8 +571,13 @@ with tab4:
     
     st.subheader(t("audit_logs"))
     history_df = pd.DataFrame(st.session_state.prediction_history)
-    st.info(f"📍 **Last Uploaded Prediction Audit:** Timestamp: `{last_pred.get('Timestamp', 'N/A')}` | Module: **{module_name}** | Target: **{last_pred.get('Target', 'N/A')}** | Status: `{last_pred.get('Status', 'N/A')}`")
-    st.dataframe(history_df, use_container_width=True)
+    st.info(f"📍 **Last Uploaded Prediction Audit:** Timestamp: `{last_pred.get('Timestamp', 'N/A')}` | Module: **{module_name}** | Target: **{last_pred.get('Target', 'N/A')}` | Status: `{last_pred.get('Status', 'N/A')}`")
+    # Replace deprecated `use_container_width` with new `width` parameter
+    try:
+        st.dataframe(history_df, width='stretch')
+    except TypeError:
+        # Fallback for older Streamlit versions
+        st.dataframe(history_df)
     st.markdown("---")
     
     st.subheader(t("model_diag"))
